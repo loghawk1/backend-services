@@ -24,21 +24,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 class WebhookHandler:
     """Handles webhook processing and task queuing"""
-
+    
     def __init__(self):
         self.settings = get_settings()
         self.redis_pool = None
         self.arq_pool = None
-
+        
     async def initialize(self):
         """Initialize Redis connections"""
         try:
             logger.info("REDIS: Initializing Redis connections...")
             logger.info(f"REDIS: Redis URL: {self.settings.redis_url}")
-
+            
             # Initialize Redis connection
             self.redis_pool = redis.ConnectionPool.from_url(
                 self.settings.redis_url,
@@ -46,25 +45,19 @@ class WebhookHandler:
                 decode_responses=True
             )
             logger.info("REDIS: Connection pool created")
-
+            
             # Initialize ARQ pool for task queue
-            logger.info(f"REDIS: Creating ARQ pool - Host: {self.settings.redis_host}:{self.settings.redis_port}")
-            self.arq_pool = await create_pool(
-                RedisSettings(
-                    host=self.settings.redis_host,
-                    port=self.settings.redis_port,
-                    database=0
-                )
-            )
+            logger.info(f"REDIS: Creating ARQ pool using URL: {self.settings.redis_url}")
+            self.arq_pool = await create_pool(RedisSettings.from_dsn(self.settings.redis_url))
             logger.info("REDIS: ARQ pool created successfully")
-
+            
             logger.info("REDIS: All connections initialized successfully!")
-
+            
         except Exception as e:
             logger.error(f"REDIS: Failed to initialize Redis connections: {e}")
             logger.exception("Full traceback:")
             raise
-
+    
     async def cleanup(self):
         """Cleanup connections"""
         logger.info("REDIS: Cleaning up connections...")
@@ -75,7 +68,7 @@ class WebhookHandler:
             logger.info("REDIS: Closing ARQ pool...")
             await self.arq_pool.close()
         logger.info("REDIS: Cleanup complete")
-
+    
     async def check_redis_connection(self) -> bool:
         """Check if Redis is connected"""
         try:
@@ -83,7 +76,7 @@ class WebhookHandler:
             if not self.redis_pool:
                 logger.warning("REDIS: Pool not initialized")
                 return False
-
+            
             redis_client = redis.Redis(connection_pool=self.redis_pool)
             await redis_client.ping()
             logger.info("REDIS: Ping successful")
@@ -91,14 +84,14 @@ class WebhookHandler:
         except Exception as e:
             logger.error(f"REDIS: Connection check failed: {e}")
             return False
-
+    
     async def extract_webhook_data(self, webhook_data: WebhookData) -> Optional[ExtractedData]:
         """Extract required fields from webhook data"""
         try:
             logger.info("EXTRACT: Starting webhook data extraction...")
             body = webhook_data.body
             logger.info(f"EXTRACT: Processing webhook body with {len(body)} fields")
-
+            
             # Extract required fields from the webhook body
             extracted = ExtractedData(
                 prompt=body.get("prompt", ""),
@@ -119,7 +112,7 @@ class WebhookHandler:
                 task_id=str(uuid.uuid4())
             )
             logger.info(f"EXTRACT: Generated task ID: {extracted.task_id}")
-
+            
             # Validate that required fields are present
             required_fields = [
                 ("prompt", extracted.prompt),
@@ -128,9 +121,9 @@ class WebhookHandler:
                 ("user_id", extracted.user_id),
                 ("user_email", extracted.user_email)
             ]
-
+            
             missing_fields = [name for name, value in required_fields if not value]
-
+            
             if not all([
                 extracted.prompt,
                 extracted.image_url,
@@ -140,26 +133,26 @@ class WebhookHandler:
             ]):
                 logger.error(f"EXTRACT: Missing required fields: {missing_fields}")
                 return None
-
+            
             logger.info(f"EXTRACT: Successfully extracted data:")
             logger.info(f"EXTRACT: Video ID: {extracted.video_id}")
             logger.info(f"EXTRACT: User: {extracted.user_email}")
             logger.info(f"EXTRACT: Prompt length: {len(extracted.prompt)} chars")
             return extracted
-
+            
         except Exception as e:
             logger.error(f"EXTRACT: Failed to extract webhook data: {e}")
             logger.exception("Full traceback:")
             return None
-
+    
     async def queue_processing_task(self, extracted_data: ExtractedData) -> str:
         """Queue a processing task using ARQ"""
         try:
             logger.info(f"QUEUE: Queuing processing task for video: {extracted_data.video_id}")
-
+            
             # Store task metadata in Redis
             redis_client = redis.Redis(connection_pool=self.redis_pool)
-
+            
             task_key = f"task:{extracted_data.task_id}"
             task_data = {
                 "status": "queued",
@@ -168,15 +161,14 @@ class WebhookHandler:
                 "data": json.dumps(extracted_data.dict()),
                 "video_id": extracted_data.video_id,
                 "user_id": extracted_data.user_id,
-                "prompt": extracted_data.prompt[:100] + "..." if len(
-                    extracted_data.prompt) > 100 else extracted_data.prompt
+                "prompt": extracted_data.prompt[:100] + "..." if len(extracted_data.prompt) > 100 else extracted_data.prompt
             }
             logger.info(f"QUEUE: Storing task metadata in Redis: {task_key}")
-
+            
             await redis_client.hset(task_key, mapping=task_data)
             await redis_client.expire(task_key, 3600)  # Expire after 1 hour
             logger.info("QUEUE: Task metadata stored successfully")
-
+            
             # Queue the task for processing
             logger.info("QUEUE: Enqueueing task for ARQ processing...")
             job = await self.arq_pool.enqueue_job(
@@ -185,35 +177,35 @@ class WebhookHandler:
                 _job_id=extracted_data.task_id
             )
             logger.info(f"QUEUE: Task enqueued with job ID: {job.job_id if job else 'None'}")
-
+            
             # Update statistics
             await self._update_stats("queued")
             logger.info("QUEUE: Statistics updated")
-
+            
             logger.info(f"QUEUE: Task queued successfully: {extracted_data.task_id}")
             return extracted_data.task_id
-
+            
         except Exception as e:
             logger.error(f"QUEUE: Failed to queue processing task: {e}")
             logger.exception("Full traceback:")
             raise
-
+    
     async def get_task_status(self, task_id: str) -> Dict[str, Any]:
         """Get the status of a processing task"""
         try:
             logger.info(f"STATUS: Getting status for task: {task_id}")
             redis_client = redis.Redis(connection_pool=self.redis_pool)
             task_key = f"task:{task_id}"
-
+            
             task_data = await redis_client.hgetall(task_key)
-
+            
             if not task_data:
                 logger.warning(f"STATUS: Task not found: {task_id}")
                 return {"status": "not_found"}
-
+            
             status = task_data.get("status", "unknown")
             logger.info(f"STATUS: Task {task_id} status: {status}")
-
+            
             return {
                 "status": status,
                 "created_at": task_data.get("created_at"),
@@ -221,21 +213,21 @@ class WebhookHandler:
                 "result": json.loads(task_data.get("result", "{}")) if task_data.get("result") else None,
                 "error": task_data.get("error")
             }
-
+            
         except Exception as e:
             logger.error(f"STATUS: Failed to get task status for {task_id}: {e}")
             return {"status": "error", "error": str(e)}
-
+    
     async def get_processing_stats(self) -> ProcessingStats:
         """Get processing statistics"""
         try:
             logger.info("STATS: Retrieving processing statistics...")
             redis_client = redis.Redis(connection_pool=self.redis_pool)
-
+            
             # Get stats from Redis
             stats_data = await redis_client.hgetall("processing_stats")
             logger.info(f"STATS: Raw stats data: {dict(stats_data) if stats_data else 'No data'}")
-
+            
             stats = ProcessingStats(
                 total_requests=int(stats_data.get("total_requests", 0)),
                 queued_tasks=int(stats_data.get("queued_tasks", 0)),
@@ -246,17 +238,17 @@ class WebhookHandler:
             )
             logger.info(f"STATS: Processed stats: Total={stats.total_requests}, Queued={stats.queued_tasks}")
             return stats
-
+            
         except Exception as e:
             logger.error(f"STATS: Failed to get processing stats: {e}")
             return ProcessingStats()
-
+    
     async def _update_stats(self, operation: str):
         """Update processing statistics"""
         try:
             logger.info(f"STATS: Updating stats for operation: {operation}")
             redis_client = redis.Redis(connection_pool=self.redis_pool)
-
+            
             if operation == "queued":
                 await redis_client.hincrby("processing_stats", "total_requests", 1)
                 await redis_client.hincrby("processing_stats", "queued_tasks", 1)
@@ -269,8 +261,8 @@ class WebhookHandler:
             elif operation == "failed":
                 await redis_client.hincrby("processing_stats", "processing_tasks", -1)
                 await redis_client.hincrby("processing_stats", "failed_tasks", 1)
-
+            
             logger.info(f"STATS: Updated for: {operation}")
-
+                
         except Exception as e:
             logger.error(f"STATS: Failed to update stats for {operation}: {e}")
