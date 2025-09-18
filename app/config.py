@@ -1,13 +1,11 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Redis Configuration
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_db: int = 0
-    redis_url: str = "redis://localhost:6379/0"
+    # Redis Configuration (explicitly required for Railway)
+    redis_url: str
 
     # API Configuration
     api_title: str = "Video Processing Webhook API"
@@ -19,14 +17,14 @@ class Settings(BaseSettings):
     task_timeout: int = 900  # Increase to 15 minutes for music generation
 
     # External API Keys
-    fal_key: str
-    openai_api_key: str
-    json2video_api_key: str
+    fal_key: str = ""
+    openai_api_key: str = ""
+    json2video_api_key: str = ""
 
     # Supabase Configuration
-    supabase_url: str
-    supabase_anon_key: str
-    supabase_service_role_key: str
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""
 
 # Singleton instance of settings
 _settings: Settings = None
