@@ -1,0 +1,1329 @@
+2025-09-18 11:50:16,755 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 11:50:16,756 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 11:50:16,757 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 11:50:16,758 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 11:50:16,759 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 11:50:16,760 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 11:50:16,899 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 11:50:16,900 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 11:50:16,901 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 11:51:34,335 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 11:51:34,337 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 11:51:34,338 - app.main - INFO - WEBHOOK: Request body size: 355 bytes
+2025-09-18 11:51:34,340 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['chat_id', 'callback_url', 'image_url', 'prompt', 'user_email', 'user_name', 'user_id', 'video_id']
+2025-09-18 11:51:34,342 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 10:51:34.341616
+2025-09-18 11:51:34,343 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 11:51:34,343 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 11:51:34,344 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 8 fields
+2025-09-18 11:51:34,346 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 4ee913ba-7e35-4113-8bb9-5e49990dbacb
+2025-09-18 11:51:34,347 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 11:51:34,349 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_123
+2025-09-18 11:51:34,350 - app.webhook_handler - INFO - EXTRACT: User: test@example.com
+2025-09-18 11:51:34,351 - app.webhook_handler - INFO - EXTRACT: Prompt length: 51 chars
+2025-09-18 11:51:34,353 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_123, User: user_789
+2025-09-18 11:51:34,354 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 11:51:34,355 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_123
+2025-09-18 11:51:34,357 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:4ee913ba-7e35-4113-8bb9-5e49990dbacb
+2025-09-18 11:51:34,392 - app.webhook_handler - ERROR - QUEUE: Failed to queue processing task: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:51:34,393 - app.webhook_handler - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hmset(task_key, task_data)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:51:34,424 - app.main - ERROR - WEBHOOK: Unexpected error processing webhook: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:51:34,425 - app.main - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\main.py", line 131, in handle_webhook
+    task_id = await webhook_handler.queue_processing_task(extracted_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hmset(task_key, task_data)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:52:50,009 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 11:52:50,010 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 11:52:50,011 - app.main - INFO - WEBHOOK: Request body size: 766 bytes
+2025-09-18 11:52:50,013 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 11:52:50,014 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 10:52:50.014551
+2025-09-18 11:52:50,016 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 11:52:50,016 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 11:52:50,017 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 11:52:50,018 - app.webhook_handler - INFO - EXTRACT: Generated task ID: f2fb8f79-a727-481a-956a-0ad065aa7097
+2025-09-18 11:52:50,019 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 11:52:50,020 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_12345
+2025-09-18 11:52:50,022 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 11:52:50,023 - app.webhook_handler - INFO - EXTRACT: Prompt length: 152 chars
+2025-09-18 11:52:50,025 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_12345, User: user_abc123
+2025-09-18 11:52:50,026 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 11:52:50,028 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_12345
+2025-09-18 11:52:50,031 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:f2fb8f79-a727-481a-956a-0ad065aa7097
+2025-09-18 11:52:50,032 - app.webhook_handler - ERROR - QUEUE: Failed to queue processing task: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:52:50,033 - app.webhook_handler - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hmset(task_key, task_data)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:52:50,045 - app.main - ERROR - WEBHOOK: Unexpected error processing webhook: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:52:50,046 - app.main - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\main.py", line 131, in handle_webhook
+    task_id = await webhook_handler.queue_processing_task(extracted_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hmset(task_key, task_data)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:06,971 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 11:54:06,972 - app.main - INFO - WEBHOOK: Request headers: 4 headers received
+2025-09-18 11:54:06,973 - app.main - INFO - WEBHOOK: Request body size: 766 bytes
+2025-09-18 11:54:06,974 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 11:54:06,974 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 10:54:06.974699
+2025-09-18 11:54:06,975 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 11:54:06,976 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 11:54:06,976 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 11:54:06,977 - app.webhook_handler - INFO - EXTRACT: Generated task ID: e4e87676-d314-4a92-9b99-bb64bdce40cd
+2025-09-18 11:54:06,978 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 11:54:06,978 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_12345
+2025-09-18 11:54:06,979 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 11:54:06,980 - app.webhook_handler - INFO - EXTRACT: Prompt length: 152 chars
+2025-09-18 11:54:06,981 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_12345, User: user_abc123
+2025-09-18 11:54:06,982 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 11:54:06,983 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_12345
+2025-09-18 11:54:06,984 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:e4e87676-d314-4a92-9b99-bb64bdce40cd
+2025-09-18 11:54:06,985 - app.webhook_handler - ERROR - QUEUE: Failed to queue processing task: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:06,986 - app.webhook_handler - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hset(task_key, mapping=task_data)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:06,992 - app.main - ERROR - WEBHOOK: Unexpected error processing webhook: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:06,992 - app.main - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\main.py", line 131, in handle_webhook
+    task_id = await webhook_handler.queue_processing_task(extracted_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hset(task_key, mapping=task_data)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:58,664 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 11:54:58,665 - app.main - INFO - WEBHOOK: Request headers: 4 headers received
+2025-09-18 11:54:58,665 - app.main - INFO - WEBHOOK: Request body size: 766 bytes
+2025-09-18 11:54:58,666 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 11:54:58,667 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 10:54:58.666948
+2025-09-18 11:54:58,667 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 11:54:58,668 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 11:54:58,668 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 11:54:58,669 - app.webhook_handler - INFO - EXTRACT: Generated task ID: d0490e77-47dc-475c-a483-0dfce5ff0c22
+2025-09-18 11:54:58,670 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 11:54:58,670 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_12345
+2025-09-18 11:54:58,671 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 11:54:58,672 - app.webhook_handler - INFO - EXTRACT: Prompt length: 152 chars
+2025-09-18 11:54:58,672 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_12345, User: user_abc123
+2025-09-18 11:54:58,673 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 11:54:58,673 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_12345
+2025-09-18 11:54:58,674 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:d0490e77-47dc-475c-a483-0dfce5ff0c22
+2025-09-18 11:54:58,675 - app.webhook_handler - ERROR - QUEUE: Failed to queue processing task: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:58,676 - app.webhook_handler - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hset(task_key, mapping=task_data)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:58,684 - app.main - ERROR - WEBHOOK: Unexpected error processing webhook: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:54:58,684 - app.main - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "C:\PycharmProjects\Backend\app\main.py", line 131, in handle_webhook
+    task_id = await webhook_handler.queue_processing_task(extracted_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\app\webhook_handler.py", line 172, in queue_processing_task
+    await redis_client.hset(task_key, mapping=task_data)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 606, in execute_command
+    return await conn.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\retry.py", line 59, in call_with_retry
+    return await do()
+           ^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\client.py", line 579, in _send_command_parse_response
+    await conn.send_command(*args)
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 467, in send_command
+    self.pack_command(*args), check_health=kwargs.get("check_health", True)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\asyncio\connection.py", line 558, in pack_command
+    for arg in map(self.encoder.encode, args):
+               ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\PycharmProjects\Backend\.venv\Lib\site-packages\redis\_parsers\encoders.py", line 29, in encode
+    raise DataError(
+    ...<2 lines>...
+    )
+redis.exceptions.DataError: Invalid input of type: 'dict'. Convert to a bytes, string, int or float first.
+2025-09-18 11:58:04,866 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 11:58:04,867 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 11:58:04,867 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 11:58:04,868 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 11:58:04,870 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 11:58:04,871 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 11:58:14,477 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 11:58:14,478 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 11:58:14,478 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 11:58:14,479 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 11:58:14,480 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 11:58:14,480 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 11:58:14,520 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 11:58:14,520 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 11:58:14,521 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 11:58:54,580 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 11:58:54,581 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 11:58:54,581 - app.main - INFO - WEBHOOK: Request body size: 766 bytes
+2025-09-18 11:58:54,582 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 11:58:54,583 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 10:58:54.583153
+2025-09-18 11:58:54,583 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 11:58:54,584 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 11:58:54,584 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 11:58:54,585 - app.webhook_handler - INFO - EXTRACT: Generated task ID: d3df972a-c251-4c3e-8d94-80357ad206f4
+2025-09-18 11:58:54,586 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 11:58:54,586 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_12345
+2025-09-18 11:58:54,587 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 11:58:54,588 - app.webhook_handler - INFO - EXTRACT: Prompt length: 152 chars
+2025-09-18 11:58:54,588 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_12345, User: user_abc123
+2025-09-18 11:58:54,589 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 11:58:54,589 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_12345
+2025-09-18 11:58:54,591 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:d3df972a-c251-4c3e-8d94-80357ad206f4
+2025-09-18 11:58:54,619 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 11:58:54,620 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 11:58:54,635 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: d3df972a-c251-4c3e-8d94-80357ad206f4
+2025-09-18 11:58:54,635 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 11:58:54,644 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 11:58:54,645 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 11:58:54,646 - app.webhook_handler - INFO - QUEUE: Task queued successfully: d3df972a-c251-4c3e-8d94-80357ad206f4
+2025-09-18 11:58:54,646 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 11:58:54,647 - app.main - INFO - WEBHOOK: Task ID: d3df972a-c251-4c3e-8d94-80357ad206f4
+2025-09-18 11:58:54,648 - app.main - INFO - WEBHOOK: Video ID: test_video_12345
+2025-09-18 11:58:54,648 - app.main - INFO - WEBHOOK: User ID: user_abc123
+2025-09-18 12:05:22,733 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 12:05:22,734 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 12:05:22,734 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 12:05:22,736 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 12:05:22,738 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 12:05:22,739 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 12:05:27,680 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 12:05:27,682 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 12:05:27,682 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 12:05:27,683 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 12:05:27,683 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 12:05:27,684 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 12:05:27,725 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 12:05:27,725 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 12:05:27,726 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 12:06:16,857 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 12:06:16,858 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 12:06:16,859 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 12:06:16,859 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 12:06:16,860 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 11:06:16.860312
+2025-09-18 12:06:16,861 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 12:06:16,861 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 12:06:16,862 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 12:06:16,863 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 0121306c-9030-4d68-a946-0227bace6314
+2025-09-18 12:06:16,864 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 12:06:16,865 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 12:06:16,866 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 12:06:16,867 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 12:06:16,867 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 12:06:16,868 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 12:06:16,869 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 12:06:16,870 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:0121306c-9030-4d68-a946-0227bace6314
+2025-09-18 12:06:16,899 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 12:06:16,900 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 12:06:16,910 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 0121306c-9030-4d68-a946-0227bace6314
+2025-09-18 12:06:16,911 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 12:06:16,934 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 12:06:16,937 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 12:06:16,940 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 0121306c-9030-4d68-a946-0227bace6314
+2025-09-18 12:06:16,943 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 12:06:16,945 - app.main - INFO - WEBHOOK: Task ID: 0121306c-9030-4d68-a946-0227bace6314
+2025-09-18 12:06:16,946 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 12:06:16,947 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 12:23:00,752 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 12:23:00,753 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 12:23:00,753 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 12:23:00,755 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 12:23:00,757 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 12:23:00,759 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 12:23:05,327 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 12:23:05,328 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 12:23:05,329 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 12:23:05,329 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 12:23:05,330 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 12:23:05,331 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 12:23:05,392 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 12:23:05,392 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 12:23:05,393 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 12:50:31,075 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 12:50:31,076 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 12:50:31,076 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 12:50:31,077 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 12:50:31,080 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 12:50:31,082 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 12:50:36,489 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 12:50:36,490 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 12:50:36,492 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 12:50:36,493 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 12:50:36,494 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 12:50:36,494 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 12:50:36,563 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 12:50:36,564 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 12:50:36,564 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 12:53:30,863 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 12:53:30,864 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 12:53:30,865 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 12:53:30,866 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 12:53:30,867 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 11:53:30.866938
+2025-09-18 12:53:30,867 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 12:53:30,868 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 12:53:30,869 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 12:53:30,870 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 0d197357-64cc-4f72-9cc9-964c2e4afd19
+2025-09-18 12:53:30,870 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 12:53:30,871 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 12:53:30,871 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 12:53:30,872 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 12:53:30,872 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 12:53:30,873 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 12:53:30,873 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 12:53:30,875 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:0d197357-64cc-4f72-9cc9-964c2e4afd19
+2025-09-18 12:53:30,897 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 12:53:30,898 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 12:53:30,907 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 0d197357-64cc-4f72-9cc9-964c2e4afd19
+2025-09-18 12:53:30,908 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 12:53:30,913 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 12:53:30,914 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 12:53:30,914 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 0d197357-64cc-4f72-9cc9-964c2e4afd19
+2025-09-18 12:53:30,915 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 12:53:30,916 - app.main - INFO - WEBHOOK: Task ID: 0d197357-64cc-4f72-9cc9-964c2e4afd19
+2025-09-18 12:53:30,916 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 12:53:30,916 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 13:07:51,929 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 13:07:51,930 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 13:07:51,931 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 13:07:51,932 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 13:07:51,934 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 13:07:51,936 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 13:07:54,872 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 13:07:54,873 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 13:07:54,874 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 13:07:54,874 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 13:07:54,875 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 13:07:54,875 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 13:07:54,918 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 13:07:54,918 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 13:07:54,919 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 13:09:42,848 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:09:42,849 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:09:42,850 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 13:09:42,850 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:09:42,851 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:09:42.851334
+2025-09-18 13:09:42,852 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:09:42,852 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:09:42,853 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:09:42,854 - app.webhook_handler - INFO - EXTRACT: Generated task ID: d72668b2-24aa-4eb1-ad51-396e436680fb
+2025-09-18 13:09:42,854 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:09:42,855 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 13:09:42,855 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:09:42,856 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:09:42,856 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 13:09:42,857 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:09:42,857 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 13:09:42,859 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:d72668b2-24aa-4eb1-ad51-396e436680fb
+2025-09-18 13:09:42,887 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:09:42,887 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:09:42,896 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: d72668b2-24aa-4eb1-ad51-396e436680fb
+2025-09-18 13:09:42,897 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:09:42,904 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:09:42,904 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:09:42,905 - app.webhook_handler - INFO - QUEUE: Task queued successfully: d72668b2-24aa-4eb1-ad51-396e436680fb
+2025-09-18 13:09:42,906 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:09:42,906 - app.main - INFO - WEBHOOK: Task ID: d72668b2-24aa-4eb1-ad51-396e436680fb
+2025-09-18 13:09:42,907 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 13:09:42,908 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 13:13:25,182 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 13:13:25,183 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 13:13:25,183 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 13:13:25,184 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 13:13:25,184 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 13:13:25,185 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 13:13:25,258 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 13:13:25,260 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 13:13:25,260 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 13:13:31,246 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 13:13:31,247 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 13:13:31,248 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 13:13:31,248 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 13:13:31,248 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 13:13:31,249 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 13:13:31,286 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 13:13:31,286 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 13:13:31,287 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 13:13:31,289 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 13:13:31,290 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 13:13:31,290 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 13:13:31,291 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 13:13:31,292 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 13:13:31,293 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 13:14:56,080 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:14:56,084 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:14:56,085 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 13:14:56,087 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:14:56,089 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:14:56.089491
+2025-09-18 13:14:56,093 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:14:56,096 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:14:56,097 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:14:56,099 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 8d5838fd-55c2-4cec-b4d4-a21eec0af46f
+2025-09-18 13:14:56,099 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:14:56,100 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 13:14:56,101 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:14:56,102 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:14:56,102 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 13:14:56,103 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:14:56,104 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 13:14:56,105 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:8d5838fd-55c2-4cec-b4d4-a21eec0af46f
+2025-09-18 13:14:56,125 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:14:56,126 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:14:56,136 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 8d5838fd-55c2-4cec-b4d4-a21eec0af46f
+2025-09-18 13:14:56,136 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:14:56,142 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:14:56,142 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:14:56,143 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 8d5838fd-55c2-4cec-b4d4-a21eec0af46f
+2025-09-18 13:14:56,144 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:14:56,145 - app.main - INFO - WEBHOOK: Task ID: 8d5838fd-55c2-4cec-b4d4-a21eec0af46f
+2025-09-18 13:14:56,146 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 13:14:56,146 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 13:33:16,449 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:33:16,450 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:33:16,451 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 13:33:16,451 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:33:16,452 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:33:16.452427
+2025-09-18 13:33:16,453 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:33:16,454 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:33:16,454 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:33:16,455 - app.webhook_handler - INFO - EXTRACT: Generated task ID: adc0dea0-a5f7-4695-9fbe-b30686a36a7e
+2025-09-18 13:33:16,456 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:33:16,457 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 13:33:16,457 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:33:16,458 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:33:16,459 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 13:33:16,459 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:33:16,460 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 13:33:16,461 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:adc0dea0-a5f7-4695-9fbe-b30686a36a7e
+2025-09-18 13:33:16,469 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:33:16,470 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:33:16,480 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: adc0dea0-a5f7-4695-9fbe-b30686a36a7e
+2025-09-18 13:33:16,481 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:33:16,488 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:33:16,489 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:33:16,490 - app.webhook_handler - INFO - QUEUE: Task queued successfully: adc0dea0-a5f7-4695-9fbe-b30686a36a7e
+2025-09-18 13:33:16,491 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:33:16,491 - app.main - INFO - WEBHOOK: Task ID: adc0dea0-a5f7-4695-9fbe-b30686a36a7e
+2025-09-18 13:33:16,492 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 13:33:16,495 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 13:39:56,105 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:39:56,106 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:39:56,106 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 13:39:56,107 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:39:56,108 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:39:56.108075
+2025-09-18 13:39:56,108 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:39:56,109 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:39:56,110 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:39:56,110 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 038a1653-7045-4baf-94fc-ebcfd538f7e6
+2025-09-18 13:39:56,111 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:39:56,111 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 13:39:56,112 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:39:56,113 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:39:56,113 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 13:39:56,114 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:39:56,114 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 13:39:56,116 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:038a1653-7045-4baf-94fc-ebcfd538f7e6
+2025-09-18 13:39:56,122 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:39:56,122 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:39:56,130 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 038a1653-7045-4baf-94fc-ebcfd538f7e6
+2025-09-18 13:39:56,130 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:39:56,137 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:39:56,137 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:39:56,138 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 038a1653-7045-4baf-94fc-ebcfd538f7e6
+2025-09-18 13:39:56,138 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:39:56,139 - app.main - INFO - WEBHOOK: Task ID: 038a1653-7045-4baf-94fc-ebcfd538f7e6
+2025-09-18 13:39:56,140 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 13:39:56,140 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 13:46:46,533 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 13:46:46,534 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 13:46:46,534 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 13:46:46,536 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 13:46:46,540 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 13:46:46,542 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 13:46:49,467 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 13:46:49,469 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 13:46:49,470 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 13:46:49,470 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 13:46:49,471 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 13:46:49,472 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 13:46:49,512 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 13:46:49,512 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 13:46:49,513 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 13:47:09,149 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:47:09,150 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:47:09,150 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 13:47:09,151 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:47:09,152 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:47:09.152166
+2025-09-18 13:47:09,153 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:47:09,153 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:47:09,154 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:47:09,155 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 11c11b56-d276-402b-8989-b42260e6e8d1
+2025-09-18 13:47:09,156 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:47:09,157 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 13:47:09,158 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:47:09,159 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:47:09,159 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 13:47:09,159 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:47:09,160 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 13:47:09,162 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:11c11b56-d276-402b-8989-b42260e6e8d1
+2025-09-18 13:47:09,181 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:47:09,182 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:47:09,190 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 11c11b56-d276-402b-8989-b42260e6e8d1
+2025-09-18 13:47:09,191 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:47:09,199 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:47:09,200 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:47:09,200 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 11c11b56-d276-402b-8989-b42260e6e8d1
+2025-09-18 13:47:09,201 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:47:09,202 - app.main - INFO - WEBHOOK: Task ID: 11c11b56-d276-402b-8989-b42260e6e8d1
+2025-09-18 13:47:09,202 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 13:47:09,203 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 13:49:00,618 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 13:49:00,620 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 13:49:00,620 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 13:49:00,622 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 13:49:00,625 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 13:49:00,626 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 13:49:03,335 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 13:49:03,337 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 13:49:03,337 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 13:49:03,338 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 13:49:03,338 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 13:49:03,339 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 13:49:03,372 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 13:49:03,372 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 13:49:03,373 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 13:49:35,323 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 13:49:35,324 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 13:49:35,325 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 13:49:35,325 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 13:49:35,326 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 12:49:35.326634
+2025-09-18 13:49:35,327 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 13:49:35,328 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 13:49:35,329 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 13:49:35,330 - app.webhook_handler - INFO - EXTRACT: Generated task ID: a2ec27df-21e9-460d-9ee0-dea66afea425
+2025-09-18 13:49:35,331 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 13:49:35,331 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 13:49:35,332 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 13:49:35,332 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 13:49:35,333 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 13:49:35,334 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 13:49:35,335 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 13:49:35,339 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:a2ec27df-21e9-460d-9ee0-dea66afea425
+2025-09-18 13:49:35,356 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 13:49:35,357 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 13:49:35,365 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: a2ec27df-21e9-460d-9ee0-dea66afea425
+2025-09-18 13:49:35,366 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 13:49:35,372 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 13:49:35,372 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 13:49:35,373 - app.webhook_handler - INFO - QUEUE: Task queued successfully: a2ec27df-21e9-460d-9ee0-dea66afea425
+2025-09-18 13:49:35,373 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 13:49:35,374 - app.main - INFO - WEBHOOK: Task ID: a2ec27df-21e9-460d-9ee0-dea66afea425
+2025-09-18 13:49:35,375 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 13:49:35,375 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 15:03:49,521 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 15:03:49,522 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 15:03:49,522 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 15:03:49,523 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 15:03:49,523 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 15:03:49,523 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 15:03:49,561 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 15:03:49,562 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 15:03:49,562 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 15:04:05,875 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 15:04:05,876 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 15:04:05,876 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 15:04:05,876 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 15:04:05,876 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 14:04:05.876804
+2025-09-18 15:04:05,877 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 15:04:05,877 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 15:04:05,877 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 15:04:05,878 - app.webhook_handler - INFO - EXTRACT: Generated task ID: b000cd6e-3de7-4ab4-8b02-bd8484fc04df
+2025-09-18 15:04:05,878 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 15:04:05,878 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 15:04:05,878 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 15:04:05,879 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 15:04:05,879 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 15:04:05,879 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 15:04:05,879 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 15:04:05,880 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:b000cd6e-3de7-4ab4-8b02-bd8484fc04df
+2025-09-18 15:04:05,910 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 15:04:05,910 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 15:04:05,915 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: b000cd6e-3de7-4ab4-8b02-bd8484fc04df
+2025-09-18 15:04:05,915 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 15:04:05,918 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 15:04:05,918 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 15:04:05,918 - app.webhook_handler - INFO - QUEUE: Task queued successfully: b000cd6e-3de7-4ab4-8b02-bd8484fc04df
+2025-09-18 15:04:05,918 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 15:04:05,919 - app.main - INFO - WEBHOOK: Task ID: b000cd6e-3de7-4ab4-8b02-bd8484fc04df
+2025-09-18 15:04:05,919 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 15:04:05,919 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 15:36:36,910 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 15:36:36,911 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 15:36:36,912 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 15:36:36,913 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 15:36:36,915 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 15:36:36,918 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 15:36:40,828 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 15:36:40,829 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 15:36:40,830 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 15:36:40,831 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 15:36:40,831 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 15:36:40,832 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 15:36:40,878 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 15:36:40,879 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 15:36:40,879 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 15:36:50,002 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 15:36:50,003 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 15:36:50,003 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 15:36:50,004 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 15:36:50,005 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 14:36:50.005381
+2025-09-18 15:36:50,006 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 15:36:50,006 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 15:36:50,007 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 15:36:50,008 - app.webhook_handler - INFO - EXTRACT: Generated task ID: b1df4bf0-4634-4ef1-b66a-fa41b6e166c1
+2025-09-18 15:36:50,009 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 15:36:50,009 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 15:36:50,010 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 15:36:50,010 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 15:36:50,011 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 15:36:50,012 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 15:36:50,012 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 15:36:50,014 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:b1df4bf0-4634-4ef1-b66a-fa41b6e166c1
+2025-09-18 15:36:50,036 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 15:36:50,037 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 15:36:50,047 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: b1df4bf0-4634-4ef1-b66a-fa41b6e166c1
+2025-09-18 15:36:50,048 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 15:36:50,056 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 15:36:50,057 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 15:36:50,057 - app.webhook_handler - INFO - QUEUE: Task queued successfully: b1df4bf0-4634-4ef1-b66a-fa41b6e166c1
+2025-09-18 15:36:50,058 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 15:36:50,059 - app.main - INFO - WEBHOOK: Task ID: b1df4bf0-4634-4ef1-b66a-fa41b6e166c1
+2025-09-18 15:36:50,060 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 15:36:50,061 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 15:40:14,381 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 15:40:14,382 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 15:40:14,383 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 15:40:14,386 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 15:40:14,390 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 15:40:14,391 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 15:40:18,571 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 15:40:18,572 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 15:40:18,573 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 15:40:18,573 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 15:40:18,574 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 15:40:18,574 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 15:40:18,614 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 15:40:18,615 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 15:40:18,616 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 15:41:13,132 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 15:41:13,133 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 15:41:13,133 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 15:41:13,134 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 15:41:13,135 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 14:41:13.135227
+2025-09-18 15:41:13,136 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 15:41:13,136 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 15:41:13,137 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 15:41:13,138 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 89fd75fd-81b0-4d72-bfbb-f287a5df5bf9
+2025-09-18 15:41:13,139 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 15:41:13,139 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 15:41:13,140 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 15:41:13,140 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 15:41:13,141 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 15:41:13,142 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 15:41:13,142 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 15:41:13,143 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:89fd75fd-81b0-4d72-bfbb-f287a5df5bf9
+2025-09-18 15:41:13,163 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 15:41:13,164 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 15:41:13,174 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 89fd75fd-81b0-4d72-bfbb-f287a5df5bf9
+2025-09-18 15:41:13,174 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 15:41:13,181 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 15:41:13,182 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 15:41:13,183 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 89fd75fd-81b0-4d72-bfbb-f287a5df5bf9
+2025-09-18 15:41:13,184 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 15:41:13,184 - app.main - INFO - WEBHOOK: Task ID: 89fd75fd-81b0-4d72-bfbb-f287a5df5bf9
+2025-09-18 15:41:13,185 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 15:41:13,186 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 15:56:27,525 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 15:56:27,526 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 15:56:27,527 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 15:56:27,528 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 15:56:27,531 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 15:56:27,533 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 15:56:31,103 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 15:56:31,104 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 15:56:31,105 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 15:56:31,105 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 15:56:31,106 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 15:56:31,107 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 15:56:31,145 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 15:56:31,146 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 15:56:31,146 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 15:56:51,465 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 15:56:51,466 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 15:56:51,467 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 15:56:51,468 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 15:56:51,469 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 14:56:51.468926
+2025-09-18 15:56:51,469 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 15:56:51,470 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 15:56:51,470 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 15:56:51,471 - app.webhook_handler - INFO - EXTRACT: Generated task ID: c1b97337-0c34-45ea-ae69-98f1b4ba7f89
+2025-09-18 15:56:51,472 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 15:56:51,472 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 15:56:51,473 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 15:56:51,473 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 15:56:51,474 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 15:56:51,475 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 15:56:51,475 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 15:56:51,477 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:c1b97337-0c34-45ea-ae69-98f1b4ba7f89
+2025-09-18 15:56:51,497 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 15:56:51,498 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 15:56:51,507 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: c1b97337-0c34-45ea-ae69-98f1b4ba7f89
+2025-09-18 15:56:51,509 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 15:56:51,515 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 15:56:51,516 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 15:56:51,517 - app.webhook_handler - INFO - QUEUE: Task queued successfully: c1b97337-0c34-45ea-ae69-98f1b4ba7f89
+2025-09-18 15:56:51,517 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 15:56:51,518 - app.main - INFO - WEBHOOK: Task ID: c1b97337-0c34-45ea-ae69-98f1b4ba7f89
+2025-09-18 15:56:51,518 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 15:56:51,519 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 16:25:09,357 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 16:25:09,357 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 16:25:09,357 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 16:25:09,358 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 16:25:09,359 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 16:25:09,359 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 16:25:11,307 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 16:25:11,308 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 16:25:11,308 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 16:25:11,308 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 16:25:11,309 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 16:25:11,309 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 16:25:11,331 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 16:25:11,332 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 16:25:11,332 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 16:25:57,913 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 16:25:57,913 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 16:25:57,913 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 16:25:57,914 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 16:25:57,914 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 15:25:57.914400
+2025-09-18 16:25:57,914 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 16:25:57,914 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 16:25:57,914 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 16:25:57,915 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 436cddcc-ad62-466e-aef5-dd192f82d369
+2025-09-18 16:25:57,915 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 16:25:57,915 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 16:25:57,915 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 16:25:57,915 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 16:25:57,916 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 16:25:57,916 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 16:25:57,916 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 16:25:57,916 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:436cddcc-ad62-466e-aef5-dd192f82d369
+2025-09-18 16:25:57,923 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 16:25:57,924 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 16:25:57,928 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 436cddcc-ad62-466e-aef5-dd192f82d369
+2025-09-18 16:25:57,928 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 16:25:57,931 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 16:25:57,931 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 16:25:57,931 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 436cddcc-ad62-466e-aef5-dd192f82d369
+2025-09-18 16:25:57,931 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 16:25:57,932 - app.main - INFO - WEBHOOK: Task ID: 436cddcc-ad62-466e-aef5-dd192f82d369
+2025-09-18 16:25:57,932 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 16:25:57,932 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 16:54:31,283 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 16:54:31,284 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 16:54:31,284 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 16:54:31,285 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 16:54:31,288 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 16:54:31,290 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 16:54:34,619 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 16:54:34,620 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 16:54:34,621 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 16:54:34,621 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 16:54:34,622 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 16:54:34,623 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 16:54:34,673 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 16:54:34,673 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 16:54:34,674 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 16:55:25,550 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 16:55:25,552 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 16:55:25,553 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 16:55:25,554 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 16:55:25,555 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 15:55:25.555073
+2025-09-18 16:55:25,556 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 16:55:25,557 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 16:55:25,558 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 16:55:25,559 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 096712ea-346e-4cd4-b83e-c8f18ddb0b3f
+2025-09-18 16:55:25,561 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 16:55:25,562 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 16:55:25,564 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 16:55:25,565 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 16:55:25,566 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 16:55:25,567 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 16:55:25,568 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 16:55:25,569 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:096712ea-346e-4cd4-b83e-c8f18ddb0b3f
+2025-09-18 16:55:25,595 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 16:55:25,596 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 16:55:25,607 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 096712ea-346e-4cd4-b83e-c8f18ddb0b3f
+2025-09-18 16:55:25,609 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 16:55:25,617 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 16:55:25,618 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 16:55:25,619 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 096712ea-346e-4cd4-b83e-c8f18ddb0b3f
+2025-09-18 16:55:25,620 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 16:55:25,621 - app.main - INFO - WEBHOOK: Task ID: 096712ea-346e-4cd4-b83e-c8f18ddb0b3f
+2025-09-18 16:55:25,621 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 16:55:25,622 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 16:58:49,537 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 16:58:49,538 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 16:58:49,539 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 16:58:49,540 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 16:58:49,541 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 15:58:49.541686
+2025-09-18 16:58:49,542 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 16:58:49,543 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 16:58:49,543 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 16:58:49,544 - app.webhook_handler - INFO - EXTRACT: Generated task ID: b08c86fa-2de8-40d5-aaa7-659394616572
+2025-09-18 16:58:49,545 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 16:58:49,546 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 16:58:49,546 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 16:58:49,547 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 16:58:49,547 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 16:58:49,548 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 16:58:49,549 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 16:58:49,550 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:b08c86fa-2de8-40d5-aaa7-659394616572
+2025-09-18 16:58:49,557 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 16:58:49,558 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 16:58:49,569 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: b08c86fa-2de8-40d5-aaa7-659394616572
+2025-09-18 16:58:49,569 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 16:58:49,576 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 16:58:49,577 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 16:58:49,578 - app.webhook_handler - INFO - QUEUE: Task queued successfully: b08c86fa-2de8-40d5-aaa7-659394616572
+2025-09-18 16:58:49,579 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 16:58:49,580 - app.main - INFO - WEBHOOK: Task ID: b08c86fa-2de8-40d5-aaa7-659394616572
+2025-09-18 16:58:49,580 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 16:58:49,581 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 17:41:06,325 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 17:41:06,327 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 17:41:06,327 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 17:41:06,331 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 17:41:06,335 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 17:41:06,337 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 17:41:10,389 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 17:41:10,391 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 17:41:10,391 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 17:41:10,392 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 17:41:10,392 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 17:41:10,393 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 17:41:10,448 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 17:41:10,449 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 17:41:10,449 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 17:41:43,461 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 17:41:43,462 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 17:41:43,463 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 17:41:43,464 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 17:41:43,465 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 16:41:43.464944
+2025-09-18 17:41:43,465 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 17:41:43,466 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 17:41:43,467 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 17:41:43,468 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 5e23666c-4bb9-4260-a7fd-02a1d2a919a3
+2025-09-18 17:41:43,468 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 17:41:43,469 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 17:41:43,470 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 17:41:43,470 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 17:41:43,471 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 17:41:43,471 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 17:41:43,472 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 17:41:43,474 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:5e23666c-4bb9-4260-a7fd-02a1d2a919a3
+2025-09-18 17:41:43,493 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 17:41:43,494 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 17:41:43,505 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 5e23666c-4bb9-4260-a7fd-02a1d2a919a3
+2025-09-18 17:41:43,506 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 17:41:43,513 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 17:41:43,513 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 17:41:43,514 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 5e23666c-4bb9-4260-a7fd-02a1d2a919a3
+2025-09-18 17:41:43,515 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 17:41:43,515 - app.main - INFO - WEBHOOK: Task ID: 5e23666c-4bb9-4260-a7fd-02a1d2a919a3
+2025-09-18 17:41:43,516 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 17:41:43,517 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 18:33:02,487 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 18:33:02,489 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 18:33:02,490 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 18:33:02,493 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 18:33:02,496 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 18:33:02,498 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 18:33:05,978 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 18:33:05,979 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 18:33:05,980 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 18:33:05,980 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 18:33:05,981 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 18:33:05,981 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 18:33:06,037 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 18:33:06,038 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 18:33:06,038 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 18:34:17,923 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 18:34:17,924 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 18:34:17,925 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 18:34:17,925 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 18:34:17,926 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 17:34:17.926416
+2025-09-18 18:34:17,927 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 18:34:17,927 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 18:34:17,928 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 18:34:17,929 - app.webhook_handler - INFO - EXTRACT: Generated task ID: eb630647-1bb7-46f9-8a65-906fd65221d1
+2025-09-18 18:34:17,929 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 18:34:17,930 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 18:34:17,930 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 18:34:17,931 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 18:34:17,931 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 18:34:17,932 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 18:34:17,933 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 18:34:17,934 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:eb630647-1bb7-46f9-8a65-906fd65221d1
+2025-09-18 18:34:17,962 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 18:34:17,963 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 18:34:17,976 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: eb630647-1bb7-46f9-8a65-906fd65221d1
+2025-09-18 18:34:17,977 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 18:34:17,985 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 18:34:17,986 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 18:34:17,986 - app.webhook_handler - INFO - QUEUE: Task queued successfully: eb630647-1bb7-46f9-8a65-906fd65221d1
+2025-09-18 18:34:17,987 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 18:34:17,988 - app.main - INFO - WEBHOOK: Task ID: eb630647-1bb7-46f9-8a65-906fd65221d1
+2025-09-18 18:34:17,988 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 18:34:17,989 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 18:44:13,563 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 18:44:13,565 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 18:44:13,565 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 18:44:13,567 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 18:44:13,570 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 18:44:13,572 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 18:44:16,567 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 18:44:16,568 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 18:44:16,569 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 18:44:16,569 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 18:44:16,570 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 18:44:16,570 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 18:44:16,632 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 18:44:16,632 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 18:44:16,633 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 18:45:31,983 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 18:45:31,984 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 18:45:31,985 - app.main - INFO - WEBHOOK: Request body size: 686 bytes
+2025-09-18 18:45:31,986 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 18:45:31,986 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 17:45:31.986704
+2025-09-18 18:45:31,987 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 18:45:31,988 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 18:45:31,988 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 18:45:31,989 - app.webhook_handler - INFO - EXTRACT: Generated task ID: e2369e8e-1e08-487f-8645-19c9c90e17a2
+2025-09-18 18:45:31,990 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 18:45:31,990 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_67890
+2025-09-18 18:45:31,991 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 18:45:31,991 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 18:45:31,992 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_67890, User: user_xyz789
+2025-09-18 18:45:31,993 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 18:45:31,993 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_67890
+2025-09-18 18:45:31,994 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:e2369e8e-1e08-487f-8645-19c9c90e17a2
+2025-09-18 18:45:32,016 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 18:45:32,016 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 18:45:32,026 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: e2369e8e-1e08-487f-8645-19c9c90e17a2
+2025-09-18 18:45:32,026 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 18:45:32,034 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 18:45:32,035 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 18:45:32,035 - app.webhook_handler - INFO - QUEUE: Task queued successfully: e2369e8e-1e08-487f-8645-19c9c90e17a2
+2025-09-18 18:45:32,036 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 18:45:32,037 - app.main - INFO - WEBHOOK: Task ID: e2369e8e-1e08-487f-8645-19c9c90e17a2
+2025-09-18 18:45:32,037 - app.main - INFO - WEBHOOK: Video ID: test_video_67890
+2025-09-18 18:45:32,038 - app.main - INFO - WEBHOOK: User ID: user_xyz789
+2025-09-18 18:55:21,558 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 18:55:21,559 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 18:55:21,560 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 18:55:21,561 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 18:55:21,567 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 18:55:21,568 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 18:55:25,758 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 18:55:25,759 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 18:55:25,759 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 18:55:25,760 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 18:55:25,761 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 18:55:25,762 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 18:55:25,817 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 18:55:25,818 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 18:55:25,818 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 18:56:17,569 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 18:56:17,570 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 18:56:17,571 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 18:56:17,572 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 18:56:17,572 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 17:56:17.572713
+2025-09-18 18:56:17,573 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 18:56:17,574 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 18:56:17,574 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 18:56:17,575 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 2dbe0276-4fc8-4ae2-aa58-a5db4c65450d
+2025-09-18 18:56:17,576 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 18:56:17,576 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 18:56:17,577 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 18:56:17,578 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 18:56:17,578 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 18:56:17,579 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 18:56:17,579 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 18:56:17,581 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:2dbe0276-4fc8-4ae2-aa58-a5db4c65450d
+2025-09-18 18:56:17,598 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 18:56:17,599 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 18:56:17,608 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 2dbe0276-4fc8-4ae2-aa58-a5db4c65450d
+2025-09-18 18:56:17,609 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 18:56:17,615 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 18:56:17,616 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 18:56:17,616 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 2dbe0276-4fc8-4ae2-aa58-a5db4c65450d
+2025-09-18 18:56:17,617 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 18:56:17,618 - app.main - INFO - WEBHOOK: Task ID: 2dbe0276-4fc8-4ae2-aa58-a5db4c65450d
+2025-09-18 18:56:17,618 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 18:56:17,619 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 19:05:50,366 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 19:05:50,366 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 19:05:50,367 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 19:05:50,368 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 19:05:50,373 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 19:05:50,375 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 19:05:54,647 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 19:05:54,648 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 19:05:54,649 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 19:05:54,649 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 19:05:54,650 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 19:05:54,650 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 19:05:54,697 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 19:05:54,697 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 19:05:54,698 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 19:07:49,596 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 19:07:49,597 - app.main - INFO - WEBHOOK: Request headers: 5 headers received
+2025-09-18 19:07:49,597 - app.main - INFO - WEBHOOK: Request body size: 701 bytes
+2025-09-18 19:07:49,598 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 19:07:49,599 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 18:07:49.598851
+2025-09-18 19:07:49,599 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 19:07:49,600 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 19:07:49,600 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 19:07:49,601 - app.webhook_handler - INFO - EXTRACT: Generated task ID: b1f068ea-e702-4f33-be62-fd8627ccf1ae
+2025-09-18 19:07:49,602 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 19:07:49,602 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 19:07:49,603 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 19:07:49,603 - app.webhook_handler - INFO - EXTRACT: Prompt length: 72 chars
+2025-09-18 19:07:49,604 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 19:07:49,605 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 19:07:49,605 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 19:07:49,606 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:b1f068ea-e702-4f33-be62-fd8627ccf1ae
+2025-09-18 19:07:49,623 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 19:07:49,624 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 19:07:49,633 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: b1f068ea-e702-4f33-be62-fd8627ccf1ae
+2025-09-18 19:07:49,634 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 19:07:49,640 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 19:07:49,641 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 19:07:49,642 - app.webhook_handler - INFO - QUEUE: Task queued successfully: b1f068ea-e702-4f33-be62-fd8627ccf1ae
+2025-09-18 19:07:49,642 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 19:07:49,643 - app.main - INFO - WEBHOOK: Task ID: b1f068ea-e702-4f33-be62-fd8627ccf1ae
+2025-09-18 19:07:49,644 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 19:07:49,644 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 19:47:49,244 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 19:47:49,245 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 19:47:49,245 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 19:47:49,247 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 19:47:49,248 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 19:47:49,249 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 19:47:51,818 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 19:47:51,819 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 19:47:51,819 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 19:47:51,819 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 19:47:51,820 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 19:47:51,820 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 19:47:51,847 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 19:47:51,847 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 19:47:51,847 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 19:56:46,607 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 19:56:46,608 - app.main - INFO - WEBHOOK: Request headers: 6 headers received
+2025-09-18 19:56:46,609 - app.main - INFO - WEBHOOK: Request body size: 2956 bytes
+2025-09-18 19:56:46,609 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 19:56:46,611 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 18:56:46.610013
+2025-09-18 19:56:46,611 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 19:56:46,612 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 19:56:46,612 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 19:56:46,612 - app.webhook_handler - INFO - EXTRACT: Generated task ID: c60277a2-e289-466a-9a95-135a1db97af8
+2025-09-18 19:56:46,612 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 19:56:46,613 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 19:56:46,613 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 19:56:46,613 - app.webhook_handler - INFO - EXTRACT: Prompt length: 2289 chars
+2025-09-18 19:56:46,613 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 19:56:46,614 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 19:56:46,614 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 19:56:46,616 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:c60277a2-e289-466a-9a95-135a1db97af8
+2025-09-18 19:56:46,630 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 19:56:46,631 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 19:56:46,635 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: c60277a2-e289-466a-9a95-135a1db97af8
+2025-09-18 19:56:46,636 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 19:56:46,639 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 19:56:46,639 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 19:56:46,639 - app.webhook_handler - INFO - QUEUE: Task queued successfully: c60277a2-e289-466a-9a95-135a1db97af8
+2025-09-18 19:56:46,640 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 19:56:46,640 - app.main - INFO - WEBHOOK: Task ID: c60277a2-e289-466a-9a95-135a1db97af8
+2025-09-18 19:56:46,640 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 19:56:46,640 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 20:44:14,250 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 20:44:14,251 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 20:44:14,251 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 20:44:14,252 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 20:44:14,254 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 20:44:14,255 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 20:44:16,056 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 20:44:16,056 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 20:44:16,057 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 20:44:16,057 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 20:44:16,057 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 20:44:16,057 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 20:44:16,082 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 20:44:16,082 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 20:44:16,082 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 20:44:46,028 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 20:44:46,029 - app.main - INFO - WEBHOOK: Request headers: 6 headers received
+2025-09-18 20:44:46,029 - app.main - INFO - WEBHOOK: Request body size: 2956 bytes
+2025-09-18 20:44:46,029 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 20:44:46,030 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 19:44:46.030103
+2025-09-18 20:44:46,030 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 20:44:46,030 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 20:44:46,030 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 20:44:46,031 - app.webhook_handler - INFO - EXTRACT: Generated task ID: 405d5417-49a6-4fe1-8644-1eac554e9f14
+2025-09-18 20:44:46,031 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 20:44:46,032 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 20:44:46,032 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 20:44:46,032 - app.webhook_handler - INFO - EXTRACT: Prompt length: 2289 chars
+2025-09-18 20:44:46,033 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 20:44:46,033 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 20:44:46,033 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 20:44:46,034 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:405d5417-49a6-4fe1-8644-1eac554e9f14
+2025-09-18 20:44:46,044 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 20:44:46,044 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 20:44:46,049 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: 405d5417-49a6-4fe1-8644-1eac554e9f14
+2025-09-18 20:44:46,049 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 20:44:46,052 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 20:44:46,053 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 20:44:46,053 - app.webhook_handler - INFO - QUEUE: Task queued successfully: 405d5417-49a6-4fe1-8644-1eac554e9f14
+2025-09-18 20:44:46,053 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 20:44:46,053 - app.main - INFO - WEBHOOK: Task ID: 405d5417-49a6-4fe1-8644-1eac554e9f14
+2025-09-18 20:44:46,053 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 20:44:46,054 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 21:27:07,029 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 21:27:07,030 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 21:27:07,030 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 21:27:07,032 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 21:27:07,034 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 21:27:07,035 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 21:27:09,623 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 21:27:09,624 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 21:27:09,624 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 21:27:09,624 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 21:27:09,625 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 21:27:09,625 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 21:27:09,647 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 21:27:09,647 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 21:27:09,647 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!
+2025-09-18 21:27:20,672 - app.main - INFO - WEBHOOK: Request received
+2025-09-18 21:27:20,673 - app.main - INFO - WEBHOOK: Request headers: 6 headers received
+2025-09-18 21:27:20,673 - app.main - INFO - WEBHOOK: Request body size: 2956 bytes
+2025-09-18 21:27:20,673 - app.main - INFO - WEBHOOK: JSON parsed successfully - Keys: ['version', 'chat_id', 'callback_url', 'request_timestamp', 'image_url', 'source', 'prompt', 'user_name', 'idempotency_key', 'is_revision', 'user_id', 'webhookUrl', 'video_id', 'executionMode', 'user_email']
+2025-09-18 21:27:20,674 - app.main - INFO - WEBHOOK: Data model created for timestamp: 2025-09-18 20:27:20.674027
+2025-09-18 21:27:20,674 - app.main - INFO - WEBHOOK: Extracting required fields from webhook data...
+2025-09-18 21:27:20,674 - app.webhook_handler - INFO - EXTRACT: Starting webhook data extraction...
+2025-09-18 21:27:20,675 - app.webhook_handler - INFO - EXTRACT: Processing webhook body with 15 fields
+2025-09-18 21:27:20,675 - app.webhook_handler - INFO - EXTRACT: Generated task ID: b3e7ec06-bf9b-4e24-996c-966af462f465
+2025-09-18 21:27:20,675 - app.webhook_handler - INFO - EXTRACT: Successfully extracted data:
+2025-09-18 21:27:20,676 - app.webhook_handler - INFO - EXTRACT: Video ID: test_video_final_123
+2025-09-18 21:27:20,676 - app.webhook_handler - INFO - EXTRACT: User: testuser@example.com
+2025-09-18 21:27:20,676 - app.webhook_handler - INFO - EXTRACT: Prompt length: 2289 chars
+2025-09-18 21:27:20,676 - app.main - INFO - WEBHOOK: Data extracted - Video ID: test_video_final_123, User: user_final_789
+2025-09-18 21:27:20,677 - app.main - INFO - WEBHOOK: Queuing processing task...
+2025-09-18 21:27:20,677 - app.webhook_handler - INFO - QUEUE: Queuing processing task for video: test_video_final_123
+2025-09-18 21:27:20,677 - app.webhook_handler - INFO - QUEUE: Storing task metadata in Redis: task:b3e7ec06-bf9b-4e24-996c-966af462f465
+2025-09-18 21:27:20,689 - app.webhook_handler - INFO - QUEUE: Task metadata stored successfully
+2025-09-18 21:27:20,689 - app.webhook_handler - INFO - QUEUE: Enqueueing task for ARQ processing...
+2025-09-18 21:27:20,695 - app.webhook_handler - INFO - QUEUE: Task enqueued with job ID: b3e7ec06-bf9b-4e24-996c-966af462f465
+2025-09-18 21:27:20,695 - app.webhook_handler - INFO - STATS: Updating stats for operation: queued
+2025-09-18 21:27:20,698 - app.webhook_handler - INFO - STATS: Updated for: queued
+2025-09-18 21:27:20,698 - app.webhook_handler - INFO - QUEUE: Statistics updated
+2025-09-18 21:27:20,698 - app.webhook_handler - INFO - QUEUE: Task queued successfully: b3e7ec06-bf9b-4e24-996c-966af462f465
+2025-09-18 21:27:20,698 - app.main - INFO - WEBHOOK: Processed successfully!
+2025-09-18 21:27:20,699 - app.main - INFO - WEBHOOK: Task ID: b3e7ec06-bf9b-4e24-996c-966af462f465
+2025-09-18 21:27:20,699 - app.main - INFO - WEBHOOK: Video ID: test_video_final_123
+2025-09-18 21:27:20,699 - app.main - INFO - WEBHOOK: User ID: user_final_789
+2025-09-18 21:59:18,130 - app.main - INFO - SHUTDOWN: Shutting down application...
+2025-09-18 21:59:18,131 - app.webhook_handler - INFO - REDIS: Cleaning up connections...
+2025-09-18 21:59:18,132 - app.webhook_handler - INFO - REDIS: Disconnecting Redis pool...
+2025-09-18 21:59:18,133 - app.webhook_handler - INFO - REDIS: Closing ARQ pool...
+2025-09-18 21:59:18,139 - app.webhook_handler - INFO - REDIS: Cleanup complete
+2025-09-18 21:59:18,143 - app.main - INFO - SHUTDOWN: Application shutdown complete
+2025-09-18 21:59:22,222 - app.main - INFO - STARTUP: Starting FastAPI application...
+2025-09-18 21:59:22,223 - app.main - INFO - STARTUP: Settings loaded: Redis=redis://localhost:6379/0
+2025-09-18 21:59:22,224 - app.webhook_handler - INFO - REDIS: Initializing Redis connections...
+2025-09-18 21:59:22,225 - app.webhook_handler - INFO - REDIS: Redis URL: redis://localhost:6379/0
+2025-09-18 21:59:22,226 - app.webhook_handler - INFO - REDIS: Connection pool created
+2025-09-18 21:59:22,226 - app.webhook_handler - INFO - REDIS: Creating ARQ pool - Host: localhost:6379
+2025-09-18 21:59:22,270 - app.webhook_handler - INFO - REDIS: ARQ pool created successfully
+2025-09-18 21:59:22,271 - app.webhook_handler - INFO - REDIS: All connections initialized successfully!
+2025-09-18 21:59:22,271 - app.main - INFO - STARTUP: Application startup complete - Ready to accept requests!

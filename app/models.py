@@ -1,0 +1,53 @@
+from pydantic import BaseModel, Field, validator
+from typing import Dict, Any, Optional
+from datetime import datetime
+
+
+class WebhookData(BaseModel):
+    """Model for incoming webhook data"""
+    headers: Dict[str, str]
+    body: Dict[str, Any]
+    timestamp: datetime
+
+
+class ExtractedData(BaseModel):
+    """Model for extracted webhook fields"""
+    prompt: str = Field(..., description="The prompt content from the webhook body")
+    image_url: str = Field(..., description="URL of the product image")
+    video_id: str = Field(..., description="Unique video identifier")
+    chat_id: str = Field(..., description="Chat session identifier")
+    user_id: str = Field(..., description="User identifier")
+    user_email: str = Field(..., description="User email address")
+    user_name: str = Field(..., description="User name")
+    is_revision: bool = Field(default=False, description="Whether this is a revision")
+    request_timestamp: str = Field(..., description="Original request timestamp")
+    source: str = Field(..., description="Source of the request")
+    version: str = Field(..., description="API version")
+    idempotency_key: str = Field(..., description="Idempotency key for duplicate detection")
+    callback_url: str = Field(..., description="URL to callback when processing is complete")
+    webhook_url: str = Field(..., description="Original webhook URL")
+    execution_mode: str = Field(..., description="Execution mode (production/development)")
+
+    # Additional fields for processing
+    task_id: Optional[str] = Field(None, description="Generated task ID")
+    processing_status: str = Field(default="queued", description="Current processing status")
+
+
+class TaskStatus(BaseModel):
+    """Model for task status response"""
+    task_id: str
+    status: str  # queued, processing, completed, failed
+    created_at: datetime
+    updated_at: datetime
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class ProcessingStats(BaseModel):
+    """Model for processing statistics"""
+    total_requests: int = 0
+    queued_tasks: int = 0
+    processing_tasks: int = 0
+    completed_tasks: int = 0
+    failed_tasks: int = 0
+    average_processing_time: float = 0.0
