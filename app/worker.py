@@ -274,7 +274,7 @@ class WorkerSettings:
     # Use REDIS_URL for Railway compatibility - ensure it's loaded properly
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", settings.redis_url))
     functions = [process_video_request]
-    max_jobs = settings.max_concurrent_tasks
+    max_jobs = 10  # Increased from 100 to 10 for better resource management per replica
     job_timeout = 1800  # 30 minutes (1800 seconds) - Fixed timeout for long-running tasks
     
     # Additional ARQ settings for reliability
