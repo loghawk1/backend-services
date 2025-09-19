@@ -39,22 +39,21 @@ async def send_video_callback(
         endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         logger.info(f"CALLBACK: Endpoint URL: {endpoint_url}")
         
-        # Prepare multipart form data
-        form_data = {
+        # Prepare JSON payload (include both snake_case + camelCase keys for compatibility)
+        payload = {
             "video_url": final_video_url,
-            "video_id": video_id,  # Use video_id as the backend expects
-            "videoId": video_id,   # Also include videoId for compatibility
+            "video_id": video_id,  # snake_case
+            "videoId": video_id,   # camelCase fallback
             "chat_id": chat_id,
             "user_id": user_id
         }
         
-        logger.info("CALLBACK: Sending POST request with multipart form data...")
+        logger.info("CALLBACK: Sending POST request with JSON payload...")
         
-        # Send POST request with multipart form data
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                data=form_data,  # httpx automatically sets Content-Type to multipart/form-data
+                json=payload,  # ✅ switched to JSON
                 headers={
                     "User-Agent": "FastAPI-Video-Processor/1.0"
                 }
@@ -128,7 +127,7 @@ async def send_error_callback(
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                json=payload,  # ✅ JSON instead of form-data
+                json=payload,
                 headers={
                     "User-Agent": "FastAPI-Video-Processor/1.0"
                 }
