@@ -14,16 +14,16 @@ class SupabaseClient:
     """Simple Supabase client wrapper using postgrest directly"""
     
     def __init__(self, url: str, service_role_key: str):
-        self.url = url
-        self.service_role_key = service_role_key
+        self.url = url.strip()
+        self.service_role_key = service_role_key.strip()
         self.rest_url = f"{url}/rest/v1"
         
         # Create postgrest client
         self.postgrest = SyncPostgrestClient(
             self.rest_url,
             headers={
-                "apikey": service_role_key,
-                "Authorization": f"Bearer {service_role_key}",
+                "apikey": self.service_role_key,
+                "Authorization": f"Bearer {self.service_role_key}",
                 "Content-Type": "application/json",
                 "Prefer": "return=representation"
             }
