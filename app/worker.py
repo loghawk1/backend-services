@@ -93,7 +93,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 2. Generate 5 scenes with GPT-4
         await update_task_progress(task_id, 15, "Generating scenes with GPT-4")
-        scenes = await generate_scenes_with_gpt4(prompt, resized_image_url, openai_client)
+        scenes = await generate_scenes_with_gpt4(prompt, openai_client)
 
         if not scenes or len(scenes) != 5:
             await update_task_progress(task_id, 0, "Failed to generate scenes")
