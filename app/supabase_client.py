@@ -1,7 +1,7 @@
 """
 Supabase client configuration
 """
-from supabase import create_client, Client, ClientOptions
+from supabase import create_client, Client
 from .config import get_settings
 import logging
 
@@ -21,14 +21,10 @@ def get_supabase_client() -> Client:
         # Use the most basic client creation to avoid compatibility issues
         logger.info(f"SUPABASE: Connecting to: {settings.supabase_url}")
         
-        # Create client with minimal options to avoid proxy issues
-        client = create_client(
+        # Create basic client without complex options
+        client: Client = create_client(
             settings.supabase_url,
-            settings.supabase_service_role_key,
-            options=ClientOptions(
-                auto_refresh_token=False,
-                persist_session=False
-            )
+            settings.supabase_service_role_key
         )
         logger.info("SUPABASE: Client created successfully")
         return client
