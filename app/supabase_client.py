@@ -1,7 +1,7 @@
 """
 Supabase client configuration
 """
-from supabase import create_client, Client
+from supabase import create_client, Client, ClientOptions
 from .config import get_settings
 import logging
 
@@ -12,17 +12,23 @@ settings = get_settings()
 def get_supabase_client() -> Client:
     """Get Supabase client with service role key for backend operations"""
     logger.info("SUPABASE: Creating Supabase client...")
-
+    
     if not settings.supabase_url or not settings.supabase_service_role_key:
         logger.error("SUPABASE: Missing Supabase configuration")
         raise ValueError("Supabase URL and Service Role Key must be configured")
-
+    
     try:
         # Use the most basic client creation to avoid compatibility issues
         logger.info(f"SUPABASE: Connecting to: {settings.supabase_url}")
+        
+        # Create client with minimal options to avoid proxy issues
         client = create_client(
             settings.supabase_url,
-            settings.supabase_service_role_key
+            settings.supabase_service_role_key,
+            options=ClientOptions(
+                auto_refresh_token=False,
+                persist_session=False
+            )
         )
         logger.info("SUPABASE: Client created successfully")
         return client
@@ -31,5 +37,5 @@ def get_supabase_client() -> Client:
         logger.exception("Full traceback:")
         raise
 
-
+    
     return client
