@@ -42,7 +42,8 @@ async def send_video_callback(
         # Prepare multipart form data
         form_data = {
             "video_url": final_video_url,
-            "videoId": video_id,  # Frontend expects videoId, not video_id
+            "video_id": video_id,  # Use video_id as the backend expects
+            "videoId": video_id,   # Also include videoId for compatibility
             "chat_id": chat_id,
             "user_id": user_id
         }
@@ -115,7 +116,8 @@ async def send_error_callback(
         # Prepare error form data
         form_data = {
             "error": error_message,
-            "videoId": video_id,  # Frontend expects videoId, not video_id
+            "video_id": video_id,  # Use video_id as the backend expects  
+            "videoId": video_id,   # Also include videoId for compatibility
             "chat_id": chat_id,
             "user_id": user_id,
             "status": "failed"
