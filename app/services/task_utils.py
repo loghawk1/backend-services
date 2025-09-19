@@ -12,10 +12,8 @@ async def update_task_progress(task_id: str, progress: int, status: str):
     try:
         logger.info(f"PROGRESS: Updating task {task_id}: {progress}% - {status}")
 
-        redis_client = redis.Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            db=settings.redis_db,
+        redis_client = redis.Redis.from_url(
+            settings.redis_url,
             decode_responses=True
         )
 
