@@ -21,8 +21,7 @@ from .services.image_processing import resize_image_with_fal, generate_scene_ima
 from .services.scene_generation import generate_scenes_with_gpt4
 from .services.video_generation import generate_videos_with_fal, compose_final_video
 from .services.audio_generation import generate_voiceovers_with_fal
-from .services.music_generation import generate_background_music_with_fal, normalize_music_volume, \
-    store_music_in_database
+from .services.music_generation import generate_background_music_with_fal, normalize_music_volume, store_music_in_database
 from .services.final_composition import compose_final_video_with_audio
 from .services.caption_generation import add_captions_to_video
 from .services.callback_service import send_video_callback, send_error_callback
@@ -57,6 +56,7 @@ openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 # Log initialization status
 logger.info(f"WORKER: Settings loaded - Redis: {settings.redis_host}:{settings.redis_port}")
+logger.info(f"WORKER: Settings loaded - Redis URL: {settings.redis_url}")
 
 if fal_client.api_key:
     logger.info("WORKER: fal.ai client configured successfully")
@@ -160,7 +160,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 11. Generate background music
         await update_task_progress(task_id, 92, "Generating background music")
-
+        
         # Make music generation optional - continue pipeline even if it fails
         raw_music_url = ""
         try:
@@ -201,8 +201,8 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 14. Final composition with all audio tracks
         await update_task_progress(task_id, 97, "Composing final video with all audio")
         final_video_url = await compose_final_video_with_audio(
-            composed_video_url,
-            voiceover_urls,
+            composed_video_url, 
+            voiceover_urls, 
             normalized_music_url
         )
 
@@ -223,7 +223,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             user_id=user_id,
             callback_url=callback_url
         )
-
+        
         if callback_success:
             logger.info("PIPELINE: Frontend callback sent successfully!")
         else:
@@ -250,7 +250,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"PIPELINE: Failed to process video request: {e}")
         logger.exception("Full traceback:")
-
+        
         # Send error callback to frontend
         try:
             callback_url = data.get("callback_url")
@@ -264,22 +264,19 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             logger.info("PIPELINE: Error callback sent to frontend")
         except Exception as callback_error:
             logger.error(f"PIPELINE: Failed to send error callback: {callback_error}")
-
+        
         await update_task_progress(task_id, 0, f"Processing failed: {str(e)}")
         return {"status": "failed", "error": str(e)}
 
 
 # ARQ Worker Configuration
 class WorkerSettings:
-    redis_settings = RedisSettings(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        database=settings.redis_db
-    )
+    # Use REDIS_URL for Railway compatibility - ensure it's loaded properly
+    redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", settings.redis_url))
     functions = [process_video_request]
     max_jobs = settings.max_concurrent_tasks
     job_timeout = 1800  # 30 minutes (1800 seconds) - Fixed timeout for long-running tasks
-
+    
     # Additional ARQ settings for reliability
     keep_result = 3600  # Keep results for 1 hour
     max_tries = 1  # Don't retry failed jobs (they're too expensive)
