@@ -55,7 +55,7 @@ settings = get_settings()
 openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 # Log initialization status
-logger.info(f"WORKER: Settings loaded - Redis: {settings.redis_host}:{settings.redis_port}")
+logger.info(f"WORKER: Settings loaded - Redis URL configured")
 logger.info(f"WORKER: Settings loaded - Redis URL: {settings.redis_url}")
 
 if fal_client.api_key:
