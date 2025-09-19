@@ -6,12 +6,11 @@ from openai import AsyncOpenAI
 logger = logging.getLogger(__name__)
 
 
-async def generate_scenes_with_gpt4(prompt: str, image_url: str, openai_client: AsyncOpenAI) -> List[Dict[str, Any]]:
+async def generate_scenes_with_gpt4(prompt: str, openai_client: AsyncOpenAI) -> List[Dict[str, Any]]:
     """Generate 5 scenes using GPT-4 with structured prompt parsing"""
     try:
         logger.info("GPT4: Starting scene generation...")
         logger.info(f"GPT4: Prompt length: {len(prompt)} characters")
-        logger.info(f"GPT4: Image URL: {image_url}")
 
         system_prompt = """You are an AI assistant that converts structured user video prompts into a JSON scene breakdown.
 
@@ -44,13 +43,7 @@ Your tasks:
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": image_url}}
-                ]
-            }
+            {"role": "user", "content": prompt}
         ]
 
         logger.info("GPT4: Sending request to GPT-4...")
@@ -88,7 +81,7 @@ Your tasks:
 
         # Parse the JSON response
         parsed_response = json.loads(content)
-
+        
         # Extract scenes array from the response
         if isinstance(parsed_response, dict) and "scenes" in parsed_response:
             scenes = parsed_response["scenes"]
@@ -111,7 +104,7 @@ Your tasks:
             required_fields = ["scene_number", "visual_description", "voiceover", "sound_effects", "music_direction"]
             for field in required_fields:
                 if field not in scene:
-                    logger.error(f"GPT4: Scene {i + 1} missing required field: {field}")
+                    logger.error(f"GPT4: Scene {i+1} missing required field: {field}")
                     return []
 
         logger.info(f"GPT4: Successfully generated {len(scenes)} scenes!")
