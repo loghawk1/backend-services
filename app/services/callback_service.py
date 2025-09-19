@@ -113,11 +113,11 @@ async def send_error_callback(
         # Use provided callback URL or default
         endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         
-        # Prepare error form data
-        form_data = {
+        # Prepare error JSON payload
+        payload = {
             "error": error_message,
-            "video_id": video_id,  # Use video_id as the backend expects  
-            "videoId": video_id,   # Also include videoId for compatibility
+            "video_id": video_id,   # snake_case
+            "videoId": video_id,    # camelCase fallback
             "chat_id": chat_id,
             "user_id": user_id,
             "status": "failed"
@@ -128,7 +128,7 @@ async def send_error_callback(
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                data=form_data,
+                json=payload,  # ✅ JSON instead of form-data
                 headers={
                     "User-Agent": "FastAPI-Video-Processor/1.0"
                 }
