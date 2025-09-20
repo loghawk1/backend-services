@@ -161,7 +161,7 @@ class WebhookHandler:
                 parent_video_id=body.get("parent_video_id", ""),
                 original_video_id=body.get("original_video_id", ""),
                 chat_id=body.get("chat_id", ""),
-                user_id=body.get("user_email", ""),  # Using email as user_id for consistency
+                user_id=body.get("user_id", ""),  # Use user_id directly, not email
                 user_email=body.get("user_email", ""),
                 user_name=body.get("user_name", ""),
                 revision_request=body.get("revision_request", ""),
