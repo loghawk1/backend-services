@@ -192,7 +192,11 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             await update_task_progress(task_id, 94, "Normalizing music volume")
             try:
                 normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
-                logger.info("PIPELINE: Music volume normalized successfully")
+                if normalized_music_url:
+                    logger.info(f"PIPELINE: Music volume normalized successfully: {normalized_music_url}")
+                else:
+                    logger.error("PIPELINE: Music normalization returned empty URL, using raw music")
+                    normalized_music_url = raw_music_url  # Fallback to raw music
             except Exception as e:
                 logger.error(f"PIPELINE: Music normalization failed: {e}")
                 normalized_music_url = raw_music_url  # Use raw music as fallback
@@ -203,8 +207,11 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if normalized_music_url:
             await update_task_progress(task_id, 95, "Storing background music")
             try:
-                await store_music_in_database(normalized_music_url, video_id, user_id)
-                logger.info("PIPELINE: Background music stored in database")
+                music_stored = await store_music_in_database(normalized_music_url, video_id, user_id)
+                if music_stored:
+                    logger.info(f"PIPELINE: Background music stored in database: {normalized_music_url}")
+                else:
+                    logger.error("PIPELINE: Failed to store background music in database")
             except Exception as e:
                 logger.error(f"PIPELINE: Failed to store music in database: {e}")
         else:
