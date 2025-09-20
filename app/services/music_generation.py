@@ -151,7 +151,14 @@ async def store_music_in_database(music_url: str, video_id: str, user_id: str) -
         if existing_result.data and len(existing_result.data) > 0:
             # Update existing record
             logger.info("DATABASE: Updating existing music record...")
-            result = supabase.table("music").update(music_record).eq("video_id", video_id).eq("user_id", user_id).execute()
+            # Remove updated_at from update payload to avoid PGRST204 error
+            update_record = {
+                "user_id": user_id,
+                "video_id": video_id,
+                "music_url": music_url
+                # Let database handle updated_at automatically
+            }
+            result = supabase.table("music").update(update_record).eq("video_id", video_id).eq("user_id", user_id).execute()
         else:
             # Insert new record
             logger.info("DATABASE: Inserting new music record...")
