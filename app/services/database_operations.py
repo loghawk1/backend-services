@@ -286,7 +286,6 @@ async def update_video_id_for_music(old_video_id: str, new_video_id: str, user_i
         # Update music record with the old video_id to use the new video_id
         result = supabase.table("music").update({
             "video_id": new_video_id,
-            "updated_at": datetime.utcnow().isoformat()
         }).eq("video_id", old_video_id).eq("user_id", user_id).execute()
 
         if result.data:
