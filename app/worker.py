@@ -322,24 +322,47 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 1. Fetch original scenes from database using parent_video_id
         await update_task_progress(task_id, 8, "Fetching original scenes from database")
+        
+        # Try to fetch scenes from parent_video_id first
         original_scenes = await get_scenes_for_video(parent_video_id, user_id)
+        
+        # If no scenes found under parent_video_id, try current video_id (for re-revisions)
+        if not original_scenes or len(original_scenes) != 5:
+            logger.info(f"REVISION: No scenes found under parent_video_id {parent_video_id}, trying current video_id {video_id}")
+            original_scenes = await get_scenes_for_video(video_id, user_id)
 
         if not original_scenes or len(original_scenes) != 5:
-            await update_task_progress(task_id, 0, "Failed to fetch original scenes")
-            return {"status": "failed", "error": "Failed to fetch original scenes from database"}
+            await update_task_progress(task_id, 0, "No scenes found for revision")
+            return {"status": "failed", "error": f"No scenes found for revision. Checked parent_video_id: {parent_video_id} and video_id: {video_id}"}
 
         logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes from database")
+        logger.info(f"REVISION: Scenes source: {'parent_video_id' if parent_video_id else 'video_id'}")
 
-        # 2. Update video_id in database from parent_video_id to new video_id
+        # 2. Update video_id in database from parent_video_id to new video_id (only if scenes came from parent)
         await update_task_progress(task_id, 12, "Updating video IDs in database")
-        scenes_updated = await update_video_id_for_scenes(parent_video_id, video_id, user_id)
-        music_updated = await update_video_id_for_music(parent_video_id, video_id, user_id)
+        
+        # Check if we need to update video IDs (only if scenes came from parent_video_id)
+        scenes_updated = True
+        music_updated = True
+        
+        # If scenes were found under parent_video_id, we need to move them to the new video_id
+        if parent_video_id != video_id:
+            # Check if scenes actually exist under parent_video_id (not already moved)
+            parent_scenes_check = await get_scenes_for_video(parent_video_id, user_id)
+            if parent_scenes_check and len(parent_scenes_check) == 5:
+                logger.info(f"REVISION: Moving scenes from {parent_video_id} to {video_id}")
+                scenes_updated = await update_video_id_for_scenes(parent_video_id, video_id, user_id)
+                music_updated = await update_video_id_for_music(parent_video_id, video_id, user_id)
+                
+                if not scenes_updated:
+                    await update_task_progress(task_id, 0, "Failed to update scene video IDs")
+                    return {"status": "failed", "error": "Failed to update scene video IDs"}
+            else:
+                logger.info(f"REVISION: Scenes already under video_id {video_id}, no ID update needed")
+        else:
+            logger.info(f"REVISION: parent_video_id equals video_id, no ID update needed")
 
-        if not scenes_updated:
-            await update_task_progress(task_id, 0, "Failed to update scene video IDs")
-            return {"status": "failed", "error": "Failed to update scene video IDs"}
-
-        logger.info(f"REVISION: Video IDs updated successfully in database - Scenes: {scenes_updated}, Music: {music_updated}")
+        logger.info(f"REVISION: Video IDs handling complete - Scenes: {scenes_updated}, Music: {music_updated}")
 
         # 3. Generate revised scenes with GPT-4
         await update_task_progress(task_id, 22, "Generating revised scenes with GPT-4")
