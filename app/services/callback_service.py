@@ -13,7 +13,8 @@ async def send_video_callback(
     video_id: str,
     chat_id: str,
     user_id: str,
-    callback_url: str = None
+    callback_url: str = None,
+    is_revision: bool = False
 ) -> bool:
     """
     Send the final video URL to the frontend callback endpoint
@@ -24,6 +25,7 @@ async def send_video_callback(
         chat_id: Chat session identifier
         user_id: User identifier
         callback_url: Optional custom callback URL (uses default if not provided)
+        is_revision: Whether this is a revision callback (default: False)
         
     Returns:
         True if callback was successful, False otherwise
@@ -34,43 +36,69 @@ async def send_video_callback(
         logger.info(f"CALLBACK: Video ID: {video_id}")
         logger.info(f"CALLBACK: Chat ID: {chat_id}")
         logger.info(f"CALLBACK: User ID: {user_id}")
+        logger.info(f"CALLBACK: Is Revision: {is_revision}")
         
         # Use provided callback URL or default
         endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         logger.info(f"CALLBACK: Endpoint URL: {endpoint_url}")
         
-        # Prepare JSON payload (include both snake_case + camelCase keys for compatibility)
-        payload = {
-            "video_url": final_video_url,
-            "video_id": video_id,  # snake_case
-            "videoId": video_id,   # camelCase fallback
-            "chat_id": chat_id,
-            "user_id": user_id
-        }
-        
-        logger.info("CALLBACK: Sending POST request with JSON payload...")
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                endpoint_url,
-                json=payload,  # ✅ switched to JSON
-                headers={
-                    "User-Agent": "FastAPI-Video-Processor/1.0"
-                }
-            )
+        # Prepare JSON payload for revision callbacks, form data for regular callbacks
+        if is_revision:
+            # Use JSON payload for revision callbacks
+            payload = {
+                "video_id": video_id,
+                "chat_id": chat_id,
+                "video_url": final_video_url,
+                "is_revision": True
+            }
             
-            # Log response details
-            logger.info(f"CALLBACK: Response status: {response.status_code}")
-            logger.info(f"CALLBACK: Response headers: {dict(response.headers)}")
+            logger.info("CALLBACK: Sending revision callback with JSON payload...")
             
-            if response.status_code == 200:
-                logger.info("CALLBACK: Video callback sent successfully!")
-                logger.info(f"CALLBACK: Response content: {response.text[:200]}...")
-                return True
-            else:
-                logger.error(f"CALLBACK: Callback failed with status {response.status_code}")
-                logger.error(f"CALLBACK: Response content: {response.text}")
-                return False
+            # Send POST request with JSON payload
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint_url,
+                    json=payload,
+                    headers={
+                        "User-Agent": "FastAPI-Video-Processor/1.0",
+                        "Content-Type": "application/json"
+                    }
+                )
+        else:
+            # Use multipart form data for regular callbacks
+            form_data = {
+                "video_url": final_video_url,
+                "video_id": video_id,
+                "videoId": video_id,
+                "chat_id": chat_id,
+                "user_id": user_id
+            }
+            
+            logger.info("CALLBACK: Sending regular callback with multipart form data...")
+            
+            # Send POST request with multipart form data
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    endpoint_url,
+                    data=form_data,
+                    headers={
+                        "User-Agent": "FastAPI-Video-Processor/1.0"
+                    }
+                )
+        
+        # Log response details
+        logger.info(f"CALLBACK: Response status: {response.status_code}")
+        logger.info(f"CALLBACK: Response headers: {dict(response.headers)}")
+        
+        if response.status_code == 200:
+            callback_type = "revision" if is_revision else "regular"
+            logger.info(f"CALLBACK: {callback_type.capitalize()} video callback sent successfully!")
+            logger.info(f"CALLBACK: Response content: {response.text[:200]}...")
+            return True
+        else:
+            logger.error(f"CALLBACK: Callback failed with status {response.status_code}")
+            logger.error(f"CALLBACK: Response content: {response.text}")
+            return False
                 
     except httpx.TimeoutException:
         logger.error("CALLBACK: Request timed out after 30 seconds")
@@ -127,7 +155,7 @@ async def send_error_callback(
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                json=payload,
+                json=payload,  # ✅ JSON instead of form-data
                 headers={
                     "User-Agent": "FastAPI-Video-Processor/1.0"
                 }
