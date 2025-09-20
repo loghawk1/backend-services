@@ -450,25 +450,25 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     if music_stored:
                         logger.info("REVISION: Background music updated successfully")
                         music_url_for_composition = normalized_music_url  # Set for composition
+                        music_url_for_composition = normalized_music_url  # Set for composition
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
                     logger.error("REVISION: Failed to normalize background music")
             else:
                 logger.error("REVISION: Failed to generate background music")
-
-        # 9. Fetch all current scene clip URLs and voiceover URLs
-        await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
-        
-        # CRITICAL: Fetch current music URL from database using the updated video_id
-        # This will get either the re-associated original music or newly generated music
-        current_music = await get_music_for_video(video_id, user_id)
-        music_url_for_composition = ""
-        if current_music and current_music.get('music_url'):
-            music_url_for_composition = current_music.get('music_url')
-            logger.info(f"REVISION: Retrieved music URL from database: {music_url_for_composition}")
         else:
-            logger.info("REVISION: No music found in database for this video")
+            # No music regeneration needed - fetch existing music from database
+            logger.info("REVISION: No music regeneration needed, fetching existing music...")
+            current_music = await get_music_for_video(video_id, user_id)
+            if current_music and current_music.get('music_url'):
+                music_url_for_composition = current_music.get('music_url')
+                logger.info(f"REVISION: Retrieved existing music URL from database: {music_url_for_composition}")
+            else:
+                logger.info("REVISION: No existing music found in database for this video")
+
+        # 9. Fetch all current scene clip URLs and voiceover URLs  
+        await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
         
         # Get updated scenes from database
         updated_scenes = await get_scenes_for_video(video_id, user_id)
