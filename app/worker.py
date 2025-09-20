@@ -450,7 +450,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     if music_stored:
                         logger.info("REVISION: Background music updated successfully")
                         music_url_for_composition = normalized_music_url  # Set for composition
-                        music_url_for_composition = normalized_music_url  # Set for composition
+                        logger.info(f"REVISION: Music URL for composition set: {music_url_for_composition}")
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
