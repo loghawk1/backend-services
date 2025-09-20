@@ -315,6 +315,10 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes")
         if original_music:
             logger.info(f"REVISION: Retrieved original music: {original_music.get('music_url', '')}")
+        
+        # Initialize music URL for composition (use original music if available)
+        music_url_for_composition = original_music.get('music_url', '') if original_music else ''
+        logger.info(f"REVISION: Initial music URL for composition: {music_url_for_composition}")
 
         # 2. Update video_id in database from parent_video_id to new video_id
         await update_task_progress(task_id, 10, "Updating video IDs in database")
@@ -446,28 +450,27 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                 normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
                 
                 if normalized_music_url:
-                    # Update music table with new music URL
-                    supabase = get_supabase_client()
-                    result = supabase.table("music").update({
-                        "music_url": normalized_music_url,
-                        "updated_at": datetime.utcnow().isoformat()
-                    }).eq("video_id", video_id).eq("user_id", user_id).execute()
+                    # Store/update music table with new music URL using upsert
+                    music_stored = await store_music_in_database(normalized_music_url, video_id, user_id)
                     
-                    if result.data:
+                    if music_stored:
                         logger.info("REVISION: Background music updated successfully")
+                        music_url_for_composition = normalized_music_url
+                        logger.info(f"REVISION: Updated music URL for composition: {music_url_for_composition}")
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
                     logger.error("REVISION: Failed to normalize background music")
             else:
                 logger.error("REVISION: Failed to generate background music")
+        else:
+            logger.info("REVISION: No music regeneration needed, using original music URL")
 
-        # 9. Fetch all current scene clip URLs, voiceover URLs, and music URL
+        # 9. Fetch all current scene clip URLs and voiceover URLs
         await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
         
         # Get updated scenes from database
         updated_scenes = await get_scenes_for_video(video_id, user_id)
-        updated_music = await get_music_for_video(video_id, user_id)
         
         if not updated_scenes or len(updated_scenes) != 5:
             await update_task_progress(task_id, 0, "Failed to fetch updated scenes for composition")
@@ -476,11 +479,12 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # Extract URLs for composition
         scene_clip_urls = [scene.get("scene_clip_url", "") for scene in updated_scenes]
         voiceover_urls = [scene.get("voiceover_url", "") for scene in updated_scenes]
-        music_url = updated_music.get("music_url", "") if updated_music else ""
 
         logger.info(f"REVISION: Composing final video with {len([url for url in scene_clip_urls if url])} scene clips")
         logger.info(f"REVISION: Using {len([url for url in voiceover_urls if url])} voiceovers")
-        logger.info(f"REVISION: Using music: {'Yes' if music_url else 'No'}")
+        logger.info(f"REVISION: Using music: {'Yes' if music_url_for_composition else 'No'}")
+        if music_url_for_composition:
+            logger.info(f"REVISION: Music URL: {music_url_for_composition}")
 
         # 10. Compose final video from scene clips
         await update_task_progress(task_id, 90, "Composing final revised video")
@@ -495,7 +499,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         final_video_url = await compose_final_video_with_audio(
             composed_video_url, 
             voiceover_urls, 
-            music_url
+            music_url_for_composition
         )
 
         # 12. Add captions to final video
