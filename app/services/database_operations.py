@@ -337,3 +337,51 @@ async def update_scenes_with_revised_content(revised_scenes: List[Dict], video_i
         logger.error(f"DATABASE: Failed to update scenes with revised content: {e}")
         logger.exception("Full traceback:")
         return False
+
+
+async def store_music_in_supabase(music_url: str, video_id: str, user_id: str) -> bool:
+    """Store or update background music URL in Supabase database"""
+    try:
+        logger.info(f"DATABASE: Storing music URL in Supabase for video: {video_id}")
+        logger.info(f"DATABASE: Music URL: {music_url}")
+
+        supabase = get_supabase_client()
+
+        # Check if music record already exists for this video
+        existing_result = supabase.table("music").select("*").eq("video_id", video_id).eq("user_id", user_id).execute()
+
+        music_record = {
+            "user_id": user_id,
+            "video_id": video_id,
+            "music_url": music_url,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+
+        if existing_result.data and len(existing_result.data) > 0:
+            # Update existing record
+            logger.info("DATABASE: Updating existing music record...")
+            # Remove updated_at from update payload to avoid PGRST204 error
+            update_record = {
+                "user_id": user_id,
+                "video_id": video_id,
+                "music_url": music_url
+                # Let database handle updated_at automatically
+            }
+            result = supabase.table("music").update(update_record).eq("video_id", video_id).eq("user_id", user_id).execute()
+        else:
+            # Insert new record
+            logger.info("DATABASE: Inserting new music record...")
+            music_record["created_at"] = datetime.utcnow().isoformat()
+            result = supabase.table("music").insert(music_record).execute()
+
+        if result.data:
+            logger.info("DATABASE: Successfully stored music URL in database")
+            return True
+        else:
+            logger.error("DATABASE: Failed to store music URL")
+            return False
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to store music in Supabase: {e}")
+        logger.exception("Full traceback:")
+        return False
