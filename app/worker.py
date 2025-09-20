@@ -19,19 +19,31 @@ from openai import AsyncOpenAI
 from .config import get_settings
 from .services.image_processing import resize_image_with_fal, generate_scene_images_with_fal
 from .services.scene_generation import generate_scenes_with_gpt4
+from .services.revision_ai import generate_revised_scenes_with_gpt4
 from .services.video_generation import generate_videos_with_fal, compose_final_video
 from .services.audio_generation import generate_voiceovers_with_fal
 from .services.music_generation import generate_background_music_with_fal, normalize_music_volume, store_music_in_database
 from .services.final_composition import compose_final_video_with_audio
 from .services.caption_generation import add_captions_to_video
 from .services.callback_service import send_video_callback, send_error_callback
+from .supabase_client import get_supabase_client
 from .services.database_operations import (
     store_scenes_in_supabase,
     update_scenes_with_image_urls,
     update_scenes_with_video_urls,
-    update_scenes_with_voiceover_urls
+    update_scenes_with_voiceover_urls,
+    get_scenes_for_video,
+    get_music_for_video,
+    update_video_id_for_scenes,
+    update_video_id_for_music,
+    update_scenes_with_revised_content
 )
 from .services.task_utils import update_task_progress
+from .services.single_asset_generation import (
+    generate_single_voiceover_with_fal,
+    generate_single_scene_image_with_fal,
+    generate_single_video_with_fal
+)
 
 # Load environment variables
 load_dotenv()
@@ -269,11 +281,282 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         return {"status": "failed", "error": str(e)}
 
 
+async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Main video revision processing pipeline"""
+    try:
+        logger.info("REVISION: Starting video revision processing pipeline...")
+
+        # Extract data
+        task_id = data.get("task_id")
+        video_id = data.get("video_id")  # New revision video ID
+        parent_video_id = data.get("parent_video_id")  # Original video ID to fetch from
+        user_id = data.get("user_id")
+        revision_request = data.get("revision_request")
+        image_url = data.get("image_url")
+        callback_url = data.get("callback_url")
+
+        logger.info("REVISION: Processing Details:")
+        logger.info(f"REVISION: Task ID: {task_id}")
+        logger.info(f"REVISION: New Video ID: {video_id}")
+        logger.info(f"REVISION: Parent Video ID: {parent_video_id}")
+        logger.info(f"REVISION: User ID: {user_id}")
+        logger.info(f"REVISION: Revision Request: {revision_request[:100]}...")
+
+        # 1. Fetch original scenes and music from database using parent_video_id
+        await update_task_progress(task_id, 5, "Fetching original video data")
+        original_scenes = await get_scenes_for_video(parent_video_id, user_id)
+        original_music = await get_music_for_video(parent_video_id, user_id)
+
+        if not original_scenes or len(original_scenes) != 5:
+            await update_task_progress(task_id, 0, "Failed to fetch original scenes")
+            return {"status": "failed", "error": f"Failed to fetch 5 original scenes for parent video: {parent_video_id}"}
+
+        logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes")
+        if original_music:
+            logger.info(f"REVISION: Retrieved original music: {original_music.get('music_url', '')}")
+
+        # 2. Update video_id in database from parent_video_id to new video_id
+        await update_task_progress(task_id, 10, "Updating video IDs in database")
+        scenes_updated = await update_video_id_for_scenes(parent_video_id, video_id, user_id)
+        music_updated = await update_video_id_for_music(parent_video_id, video_id, user_id)
+
+        if not scenes_updated:
+            await update_task_progress(task_id, 0, "Failed to update scene video IDs")
+            return {"status": "failed", "error": "Failed to update scene video IDs"}
+
+        logger.info("REVISION: Video IDs updated successfully in database")
+
+        # 3. Generate revised scenes with GPT-4
+        await update_task_progress(task_id, 20, "Generating revised scenes with GPT-4")
+        revised_scenes = await generate_revised_scenes_with_gpt4(revision_request, original_scenes, openai_client)
+
+        if not revised_scenes or len(revised_scenes) != 5:
+            await update_task_progress(task_id, 0, "Failed to generate revised scenes")
+            return {"status": "failed", "error": "Failed to generate 5 revised scenes"}
+
+        logger.info(f"REVISION: Generated {len(revised_scenes)} revised scenes")
+
+        # 4. Update database with revised scene content
+        await update_task_progress(task_id, 30, "Updating database with revised content")
+        if not await update_scenes_with_revised_content(revised_scenes, video_id, user_id):
+            await update_task_progress(task_id, 0, "Failed to update database with revised content")
+            return {"status": "failed", "error": "Failed to update database with revised content"}
+
+        # 5. Compare original vs revised scenes to identify changes
+        await update_task_progress(task_id, 35, "Analyzing changes and planning re-generation")
+        
+        scenes_needing_voiceover_regen = []
+        scenes_needing_visual_regen = []
+        music_needs_regen = False
+
+        for i, (original, revised) in enumerate(zip(original_scenes, revised_scenes)):
+            scene_number = revised.get("scene_number", i + 1)
+            
+            # Check if voiceover changed
+            original_voiceover = original.get("vioce_over", "")  # Note: matches table column name
+            revised_voiceover = revised.get("voiceover", "")
+            if original_voiceover != revised_voiceover:
+                scenes_needing_voiceover_regen.append((scene_number, revised_voiceover))
+                logger.info(f"REVISION: Scene {scene_number} voiceover changed")
+
+            # Check if visual description changed
+            original_visual = original.get("visual_description", "")
+            revised_visual = revised.get("visual_description", "")
+            if original_visual != revised_visual:
+                scenes_needing_visual_regen.append((scene_number, revised_visual))
+                logger.info(f"REVISION: Scene {scene_number} visual description changed")
+
+            # Check if sound effects or music direction changed
+            original_sound = original.get("sound_effects", "")
+            revised_sound = revised.get("sound_effects", "")
+            original_music_dir = original.get("music_direction", "")
+            revised_music_dir = revised.get("music_direction", "")
+            
+            if original_sound != revised_sound or original_music_dir != revised_music_dir:
+                music_needs_regen = True
+                logger.info(f"REVISION: Scene {scene_number} sound/music changed - will regenerate background music")
+
+        logger.info(f"REVISION: Analysis complete - Voiceover regen: {len(scenes_needing_voiceover_regen)}, Visual regen: {len(scenes_needing_visual_regen)}, Music regen: {music_needs_regen}")
+
+        # 6. Re-generate voiceovers for changed scenes
+        if scenes_needing_voiceover_regen:
+            await update_task_progress(task_id, 45, f"Re-generating {len(scenes_needing_voiceover_regen)} voiceovers")
+            
+            for scene_number, voiceover_text in scenes_needing_voiceover_regen:
+                logger.info(f"REVISION: Re-generating voiceover for scene {scene_number}")
+                new_voiceover_url = await generate_single_voiceover_with_fal(voiceover_text)
+                
+                if new_voiceover_url:
+                    # Update specific scene's voiceover_url in database
+                    supabase = get_supabase_client()
+                    result = supabase.table("scenes").update({
+                        "voiceover_url": new_voiceover_url,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }).eq("video_id", video_id).eq("user_id", user_id).eq("scene_number", scene_number).execute()
+                    
+                    if result.data:
+                        logger.info(f"REVISION: Scene {scene_number} voiceover URL updated successfully")
+                    else:
+                        logger.error(f"REVISION: Failed to update scene {scene_number} voiceover URL")
+                else:
+                    logger.error(f"REVISION: Failed to generate voiceover for scene {scene_number}")
+
+        # 7. Re-generate images and videos for changed visual descriptions
+        if scenes_needing_visual_regen:
+            await update_task_progress(task_id, 60, f"Re-generating {len(scenes_needing_visual_regen)} scene images and videos")
+            
+            for scene_number, visual_description in scenes_needing_visual_regen:
+                logger.info(f"REVISION: Re-generating image and video for scene {scene_number}")
+                
+                # Generate new scene image
+                new_image_url = await generate_single_scene_image_with_fal(visual_description, image_url)
+                
+                if new_image_url:
+                    # Generate new scene video from the new image
+                    new_video_url = await generate_single_video_with_fal(new_image_url, visual_description)
+                    
+                    if new_video_url:
+                        # Update scene's image_url and scene_clip_url in database
+                        supabase = get_supabase_client()
+                        result = supabase.table("scenes").update({
+                            "image_url": new_image_url,
+                            "scene_clip_url": new_video_url,
+                            "updated_at": datetime.utcnow().isoformat()
+                        }).eq("video_id", video_id).eq("user_id", user_id).eq("scene_number", scene_number).execute()
+                        
+                        if result.data:
+                            logger.info(f"REVISION: Scene {scene_number} image and video URLs updated successfully")
+                        else:
+                            logger.error(f"REVISION: Failed to update scene {scene_number} image and video URLs")
+                    else:
+                        logger.error(f"REVISION: Failed to generate video for scene {scene_number}")
+                else:
+                    logger.error(f"REVISION: Failed to generate image for scene {scene_number}")
+
+        # 8. Re-generate background music if needed
+        if music_needs_regen:
+            await update_task_progress(task_id, 75, "Re-generating background music")
+            
+            # Generate new background music using revised scenes
+            raw_music_url = await generate_background_music_with_fal(revised_scenes)
+            
+            if raw_music_url:
+                # Normalize music volume
+                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
+                
+                if normalized_music_url:
+                    # Update music table with new music URL
+                    supabase = get_supabase_client()
+                    result = supabase.table("music").update({
+                        "music_url": normalized_music_url,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }).eq("video_id", video_id).eq("user_id", user_id).execute()
+                    
+                    if result.data:
+                        logger.info("REVISION: Background music updated successfully")
+                    else:
+                        logger.error("REVISION: Failed to update background music in database")
+                else:
+                    logger.error("REVISION: Failed to normalize background music")
+            else:
+                logger.error("REVISION: Failed to generate background music")
+
+        # 9. Fetch all current scene clip URLs, voiceover URLs, and music URL
+        await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
+        
+        # Get updated scenes from database
+        updated_scenes = await get_scenes_for_video(video_id, user_id)
+        updated_music = await get_music_for_video(video_id, user_id)
+        
+        if not updated_scenes or len(updated_scenes) != 5:
+            await update_task_progress(task_id, 0, "Failed to fetch updated scenes for composition")
+            return {"status": "failed", "error": "Failed to fetch updated scenes for final composition"}
+
+        # Extract URLs for composition
+        scene_clip_urls = [scene.get("scene_clip_url", "") for scene in updated_scenes]
+        voiceover_urls = [scene.get("voiceover_url", "") for scene in updated_scenes]
+        music_url = updated_music.get("music_url", "") if updated_music else ""
+
+        logger.info(f"REVISION: Composing final video with {len([url for url in scene_clip_urls if url])} scene clips")
+        logger.info(f"REVISION: Using {len([url for url in voiceover_urls if url])} voiceovers")
+        logger.info(f"REVISION: Using music: {'Yes' if music_url else 'No'}")
+
+        # 10. Compose final video from scene clips
+        await update_task_progress(task_id, 90, "Composing final revised video")
+        composed_video_url = await compose_final_video(scene_clip_urls)
+
+        if not composed_video_url:
+            await update_task_progress(task_id, 0, "Failed to compose final revised video")
+            return {"status": "failed", "error": "Failed to compose final revised video"}
+
+        # 11. Compose final video with all audio tracks
+        await update_task_progress(task_id, 95, "Adding audio tracks to final video")
+        final_video_url = await compose_final_video_with_audio(
+            composed_video_url, 
+            voiceover_urls, 
+            music_url
+        )
+
+        # 12. Add captions to final video
+        await update_task_progress(task_id, 97, "Adding captions to final revised video")
+        captioned_video_url = await add_captions_to_video(final_video_url)
+
+        # 13. Final completion
+        await update_task_progress(task_id, 100, "Revision processing completed successfully")
+
+        # 14. Send final video to frontend
+        logger.info("REVISION: Sending final revised video to frontend...")
+        callback_success = await send_video_callback(
+            final_video_url=captioned_video_url,
+            video_id=video_id,
+            chat_id=data.get("chat_id", ""),
+            user_id=user_id,
+            callback_url=callback_url
+        )
+        
+        logger.info("REVISION: Video revision processing completed successfully!")
+        if callback_success:
+        return {
+            "status": "completed",
+            "video_id": video_id,
+            "parent_video_id": parent_video_id,
+            "revision_request": revision_request,
+            "scenes_voiceover_regen": len(scenes_needing_voiceover_regen),
+            "scenes_visual_regen": len(scenes_needing_visual_regen),
+            "music_regenerated": music_needs_regen,
+            "composed_video_url": composed_video_url,
+            "final_video_url": final_video_url,
+            "captioned_video_url": captioned_video_url,
+            "callback_sent": callback_success
+        }
+            logger.info("REVISION: Frontend callback sent successfully!")
+    except Exception as e:
+        logger.error(f"REVISION: Failed to process video revision: {e}")
+        logger.exception("Full traceback:")
+        
+        # Send error callback to frontend
+        try:
+            callback_url = data.get("callback_url")
+            await send_error_callback(
+                error_message=str(e),
+                video_id=data.get("video_id", ""),
+                chat_id=data.get("chat_id", ""),
+                user_id=data.get("user_id", ""),
+                callback_url=callback_url
+            )
+            logger.info("REVISION: Error callback sent to frontend")
+        except Exception as callback_error:
+            logger.error(f"REVISION: Failed to send error callback: {callback_error}")
+        
+        await update_task_progress(task_id, 0, f"Revision processing failed: {str(e)}")
+        return {"status": "failed", "error": str(e)}
+        else:
+            logger.warning("REVISION: Frontend callback failed, but processing completed")
 # ARQ Worker Configuration
 class WorkerSettings:
     # Use REDIS_URL for Railway compatibility - ensure it's loaded properly
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", settings.redis_url))
-    functions = [process_video_request]
+    functions = [process_video_request, process_video_revision]
     max_jobs = 10  # Increased from 100 to 10 for better resource management per replica
     job_timeout = 1800  # 30 minutes (1800 seconds) - Fixed timeout for long-running tasks
     
