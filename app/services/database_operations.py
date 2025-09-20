@@ -189,3 +189,152 @@ async def update_scenes_with_voiceover_urls(voiceover_urls: List[str], video_id:
         logger.error(f"DATABASE: Failed to update scene voiceover URLs: {e}")
         logger.exception("Full traceback:")
         return False
+
+
+async def get_scenes_for_video(video_id: str, user_id: str) -> List[Dict]:
+    """Retrieve all 5 scenes for a specific video from the database"""
+    try:
+        logger.info(f"DATABASE: Retrieving scenes for video: {video_id}, user: {user_id}")
+
+        supabase = get_supabase_client()
+
+        # Get all scenes for this video, ordered by scene_number
+        result = supabase.table("scenes").select("*").eq("video_id", video_id).eq("user_id", user_id).order("scene_number").execute()
+
+        if not result.data:
+            logger.error(f"DATABASE: No scenes found for video: {video_id}")
+            return []
+
+        if len(result.data) != 5:
+            logger.warning(f"DATABASE: Expected 5 scenes, found {len(result.data)} for video: {video_id}")
+
+        logger.info(f"DATABASE: Successfully retrieved {len(result.data)} scenes for video: {video_id}")
+        for scene in result.data:
+            logger.info(f"DATABASE: Scene {scene.get('scene_number')}: {scene.get('visual_description', '')[:50]}...")
+
+        return result.data
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to retrieve scenes for video {video_id}: {e}")
+        logger.exception("Full traceback:")
+        return []
+
+
+async def get_music_for_video(video_id: str, user_id: str) -> Dict:
+    """Retrieve background music record for a specific video from the database"""
+    try:
+        logger.info(f"DATABASE: Retrieving music for video: {video_id}, user: {user_id}")
+
+        supabase = get_supabase_client()
+
+        # Get music record for this video
+        result = supabase.table("music").select("*").eq("video_id", video_id).eq("user_id", user_id).execute()
+
+        if not result.data:
+            logger.warning(f"DATABASE: No music found for video: {video_id}")
+            return {}
+
+        if len(result.data) > 1:
+            logger.warning(f"DATABASE: Multiple music records found for video: {video_id}, using first one")
+
+        music_record = result.data[0]
+        logger.info(f"DATABASE: Successfully retrieved music for video: {video_id}")
+        logger.info(f"DATABASE: Music URL: {music_record.get('music_url', '')}")
+
+        return music_record
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to retrieve music for video {video_id}: {e}")
+        logger.exception("Full traceback:")
+        return {}
+
+
+async def update_video_id_for_scenes(old_video_id: str, new_video_id: str, user_id: str) -> bool:
+    """Update video_id for all scenes from old_video_id to new_video_id"""
+    try:
+        logger.info(f"DATABASE: Updating video_id for scenes from {old_video_id} to {new_video_id}")
+
+        supabase = get_supabase_client()
+
+        # Update all scenes with the old video_id to use the new video_id
+        result = supabase.table("scenes").update({
+            "video_id": new_video_id,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("video_id", old_video_id).eq("user_id", user_id).execute()
+
+        if result.data:
+            updated_count = len(result.data)
+            logger.info(f"DATABASE: Successfully updated video_id for {updated_count} scenes")
+            return True
+        else:
+            logger.error(f"DATABASE: No scenes updated for video_id change from {old_video_id} to {new_video_id}")
+            return False
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to update video_id for scenes: {e}")
+        logger.exception("Full traceback:")
+        return False
+
+
+async def update_video_id_for_music(old_video_id: str, new_video_id: str, user_id: str) -> bool:
+    """Update video_id for music record from old_video_id to new_video_id"""
+    try:
+        logger.info(f"DATABASE: Updating video_id for music from {old_video_id} to {new_video_id}")
+
+        supabase = get_supabase_client()
+
+        # Update music record with the old video_id to use the new video_id
+        result = supabase.table("music").update({
+            "video_id": new_video_id,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("video_id", old_video_id).eq("user_id", user_id).execute()
+
+        if result.data:
+            logger.info(f"DATABASE: Successfully updated video_id for music record")
+            return True
+        else:
+            logger.warning(f"DATABASE: No music record found to update for video_id change from {old_video_id} to {new_video_id}")
+            return True  # Return True since music might not exist for all videos
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to update video_id for music: {e}")
+        logger.exception("Full traceback:")
+        return False
+
+
+async def update_scenes_with_revised_content(revised_scenes: List[Dict], video_id: str, user_id: str) -> bool:
+    """Update scenes in database with revised content from AI"""
+    try:
+        logger.info(f"DATABASE: Updating {len(revised_scenes)} scenes with revised content for video: {video_id}")
+
+        supabase = get_supabase_client()
+
+        # Update each scene with revised content
+        for scene in revised_scenes:
+            scene_number = scene.get("scene_number", 1)
+            
+            update_data = {
+                "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
+                "vioce_over": scene.get("voiceover", "")[:1000],  # Note: matches your table column name
+                "sound_effects": scene.get("sound_effects", "")[:500],
+                "music_direction": scene.get("music_direction", "")[:500],
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"DATABASE: Updating scene {scene_number} with revised content...")
+            
+            result = supabase.table("scenes").update(update_data).eq("video_id", video_id).eq("user_id", user_id).eq("scene_number", scene_number).execute()
+            
+            if result.data:
+                logger.info(f"DATABASE: Scene {scene_number} updated successfully")
+            else:
+                logger.error(f"DATABASE: Failed to update scene {scene_number}")
+                return False
+
+        logger.info("DATABASE: All scenes updated with revised content successfully")
+        return True
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to update scenes with revised content: {e}")
+        logger.exception("Full traceback:")
+        return False
