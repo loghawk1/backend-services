@@ -294,7 +294,7 @@ async def update_video_id_for_music(old_video_id: str, new_video_id: str, user_i
             return True
         else:
             logger.warning(f"DATABASE: No music record found to update for video_id change from {old_video_id} to {new_video_id}")
-            return True  # Return True since music might not exist for all videos
+            return False  # Return False to indicate no music record was found/updated
 
     except Exception as e:
         logger.error(f"DATABASE: Failed to update video_id for music: {e}")
