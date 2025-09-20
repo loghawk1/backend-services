@@ -306,19 +306,12 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 1. Fetch original scenes and music from database using parent_video_id
         await update_task_progress(task_id, 5, "Fetching original video data")
         original_scenes = await get_scenes_for_video(parent_video_id, user_id)
-        original_music = await get_music_for_video(parent_video_id, user_id)
 
         if not original_scenes or len(original_scenes) != 5:
             await update_task_progress(task_id, 0, "Failed to fetch original scenes")
             return {"status": "failed", "error": f"Failed to fetch 5 original scenes for parent video: {parent_video_id}"}
 
         logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes")
-        if original_music:
-            logger.info(f"REVISION: Retrieved original music: {original_music.get('music_url', '')}")
-        
-        # Initialize music URL for composition (use original music if available)
-        music_url_for_composition = original_music.get('music_url', '') if original_music else ''
-        logger.info(f"REVISION: Initial music URL for composition: {music_url_for_composition}")
 
         # 2. Update video_id in database from parent_video_id to new video_id
         await update_task_progress(task_id, 10, "Updating video IDs in database")
@@ -329,7 +322,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             await update_task_progress(task_id, 0, "Failed to update scene video IDs")
             return {"status": "failed", "error": "Failed to update scene video IDs"}
 
-        logger.info("REVISION: Video IDs updated successfully in database")
+        logger.info(f"REVISION: Video IDs updated successfully in database - Scenes: {scenes_updated}, Music: {music_updated}")
 
         # 3. Generate revised scenes with GPT-4
         await update_task_progress(task_id, 20, "Generating revised scenes with GPT-4")
@@ -439,8 +432,6 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     logger.error(f"REVISION: Failed to generate image for scene {scene_number}")
 
         # 8. Re-generate background music if needed
-        music_url_for_composition = ""  # Initialize music URL variable
-        
         if music_needs_regen:
             await update_task_progress(task_id, 75, "Re-generating background music")
             
@@ -457,7 +448,6 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     
                     if music_stored:
                         logger.info("REVISION: Background music updated successfully")
-                        music_url_for_composition = normalized_music_url
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
@@ -468,14 +458,15 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 9. Fetch all current scene clip URLs and voiceover URLs
         await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
         
-        # Fetch current music URL from database (either re-associated original or newly generated)
+        # CRITICAL: Fetch current music URL from database using the updated video_id
+        # This will get either the re-associated original music or newly generated music
         current_music = await get_music_for_video(video_id, user_id)
+        music_url_for_composition = ""
         if current_music and current_music.get('music_url'):
             music_url_for_composition = current_music.get('music_url')
             logger.info(f"REVISION: Retrieved music URL from database: {music_url_for_composition}")
         else:
             logger.info("REVISION: No music found in database for this video")
-            music_url_for_composition = ""
         
         # Get updated scenes from database
         updated_scenes = await get_scenes_for_video(video_id, user_id)
