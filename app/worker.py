@@ -303,15 +303,15 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: User ID: {user_id}")
         logger.info(f"REVISION: Revision Request: {revision_request[:100]}...")
 
-        # 1. Fetch original scenes and music from database using parent_video_id
-        await update_task_progress(task_id, 5, "Fetching original video data")
+        # 1. Fetch original scenes from database using parent_video_id
+        await update_task_progress(task_id, 5, "Fetching original scenes from database")
         original_scenes = await get_scenes_for_video(parent_video_id, user_id)
 
         if not original_scenes or len(original_scenes) != 5:
             await update_task_progress(task_id, 0, "Failed to fetch original scenes")
-            return {"status": "failed", "error": f"Failed to fetch 5 original scenes for parent video: {parent_video_id}"}
+            return {"status": "failed", "error": "Failed to fetch original scenes from database"}
 
-        logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes")
+        logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes from database")
 
         # 2. Update video_id in database from parent_video_id to new video_id
         await update_task_progress(task_id, 10, "Updating video IDs in database")
@@ -432,6 +432,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     logger.error(f"REVISION: Failed to generate image for scene {scene_number}")
 
         # 8. Re-generate background music if needed
+        music_url_for_composition = ""
         if music_needs_regen:
             await update_task_progress(task_id, 75, "Re-generating background music")
             
@@ -448,6 +449,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     
                     if music_stored:
                         logger.info("REVISION: Background music updated successfully")
+                        music_url_for_composition = normalized_music_url  # Set for composition
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
