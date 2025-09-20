@@ -303,8 +303,18 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: User ID: {user_id}")
         logger.info(f"REVISION: Revision Request: {revision_request[:100]}...")
 
+        # 1. Resize/reframe base product image (same as regular video generation)
+        await update_task_progress(task_id, 3, "Resizing base product image with Luma Photon")
+        base_resized_image_url = await resize_image_with_fal(image_url)
+        
+        if not base_resized_image_url:
+            logger.error("REVISION: Failed to resize base product image")
+            base_resized_image_url = image_url  # Fallback to original
+        else:
+            logger.info(f"REVISION: Base image resized successfully: {base_resized_image_url}")
+
         # 1. Fetch original scenes from database using parent_video_id
-        await update_task_progress(task_id, 5, "Fetching original scenes from database")
+        await update_task_progress(task_id, 8, "Fetching original scenes from database")
         original_scenes = await get_scenes_for_video(parent_video_id, user_id)
 
         if not original_scenes or len(original_scenes) != 5:
@@ -314,7 +324,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: Retrieved {len(original_scenes)} original scenes from database")
 
         # 2. Update video_id in database from parent_video_id to new video_id
-        await update_task_progress(task_id, 10, "Updating video IDs in database")
+        await update_task_progress(task_id, 12, "Updating video IDs in database")
         scenes_updated = await update_video_id_for_scenes(parent_video_id, video_id, user_id)
         music_updated = await update_video_id_for_music(parent_video_id, video_id, user_id)
 
@@ -325,7 +335,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: Video IDs updated successfully in database - Scenes: {scenes_updated}, Music: {music_updated}")
 
         # 3. Generate revised scenes with GPT-4
-        await update_task_progress(task_id, 20, "Generating revised scenes with GPT-4")
+        await update_task_progress(task_id, 22, "Generating revised scenes with GPT-4")
         revised_scenes = await generate_revised_scenes_with_gpt4(revision_request, original_scenes, openai_client)
 
         if not revised_scenes or len(revised_scenes) != 5:
@@ -335,13 +345,13 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"REVISION: Generated {len(revised_scenes)} revised scenes")
 
         # 4. Update database with revised scene content
-        await update_task_progress(task_id, 30, "Updating database with revised content")
+        await update_task_progress(task_id, 32, "Updating database with revised content")
         if not await update_scenes_with_revised_content(revised_scenes, video_id, user_id):
             await update_task_progress(task_id, 0, "Failed to update database with revised content")
             return {"status": "failed", "error": "Failed to update database with revised content"}
 
         # 5. Compare original vs revised scenes to identify changes
-        await update_task_progress(task_id, 35, "Analyzing changes and planning re-generation")
+        await update_task_progress(task_id, 37, "Analyzing changes and planning re-generation")
         
         scenes_needing_voiceover_regen = []
         scenes_needing_visual_regen = []
@@ -378,7 +388,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 6. Re-generate voiceovers for changed scenes
         if scenes_needing_voiceover_regen:
-            await update_task_progress(task_id, 45, f"Re-generating {len(scenes_needing_voiceover_regen)} voiceovers")
+            await update_task_progress(task_id, 47, f"Re-generating {len(scenes_needing_voiceover_regen)} voiceovers")
             
             for scene_number, voiceover_text in scenes_needing_voiceover_regen:
                 logger.info(f"REVISION: Re-generating voiceover for scene {scene_number}")
@@ -401,13 +411,13 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 7. Re-generate images and videos for changed visual descriptions
         if scenes_needing_visual_regen:
-            await update_task_progress(task_id, 60, f"Re-generating {len(scenes_needing_visual_regen)} scene images and videos")
+            await update_task_progress(task_id, 62, f"Re-generating {len(scenes_needing_visual_regen)} scene images and videos")
             
             for scene_number, visual_description in scenes_needing_visual_regen:
                 logger.info(f"REVISION: Re-generating image and video for scene {scene_number}")
                 
-                # Generate new scene image
-                new_image_url = await generate_single_scene_image_with_fal(visual_description, image_url)
+                # Generate new scene image using the resized base image
+                new_image_url = await generate_single_scene_image_with_fal(visual_description, base_resized_image_url)
                 
                 if new_image_url:
                     # Generate new scene video from the new image
@@ -434,7 +444,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 8. Re-generate background music if needed
         music_url_for_composition = ""
         if music_needs_regen:
-            await update_task_progress(task_id, 75, "Re-generating background music")
+            await update_task_progress(task_id, 77, "Re-generating background music")
             
             # Generate new background music using revised scenes
             raw_music_url = await generate_background_music_with_fal(revised_scenes)
@@ -468,7 +478,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                 logger.info("REVISION: No existing music found in database for this video")
 
         # 9. Fetch all current scene clip URLs and voiceover URLs  
-        await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
+        await update_task_progress(task_id, 87, "Fetching updated assets for final composition")
         
         # Get updated scenes from database
         updated_scenes = await get_scenes_for_video(video_id, user_id)
@@ -488,7 +498,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             logger.info(f"REVISION: Music URL: {music_url_for_composition}")
 
         # 10. Compose final video from scene clips
-        await update_task_progress(task_id, 90, "Composing final revised video")
+        await update_task_progress(task_id, 92, "Composing final revised video")
         composed_video_url = await compose_final_video(scene_clip_urls)
 
         if not composed_video_url:
@@ -532,6 +542,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             "video_id": video_id,
             "parent_video_id": parent_video_id,
             "revision_request": revision_request,
+            "base_resized_image_url": base_resized_image_url,
             "scenes_voiceover_regen": len(scenes_needing_voiceover_regen),
             "scenes_visual_regen": len(scenes_needing_visual_regen),
             "music_regenerated": music_needs_regen,
