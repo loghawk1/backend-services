@@ -506,6 +506,8 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                 logger.info(f"REVISION: Retrieved existing music URL from database: {music_url_for_composition}")
             else:
                 logger.info("REVISION: No existing music found in database for this video")
+                music_url_for_composition = ""  # Ensure it's set to empty string if no music found
+                music_url_for_composition = ""  # Ensure it's set to empty string if no music found
 
         # 9. Fetch all current scene clip URLs and voiceover URLs  
         await update_task_progress(task_id, 87, "Fetching updated assets for final composition")
@@ -547,14 +549,40 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         await update_task_progress(task_id, 97, "Adding captions to final revised video")
         captioned_video_url = await add_captions_to_video(final_video_url)
 
-        # 13. Final completion
+        # 13. Update video IDs in database to final revision video ID from webhook
+        await update_task_progress(task_id, 99, "Updating database with final revision video ID")
+        
+        # Get the final revision video ID from the webhook data
+        final_revision_video_id = data.get("video_id")  # This is the revision video ID from webhook
+        
+        if final_revision_video_id and final_revision_video_id != video_id:
+            logger.info(f"REVISION: Updating database video IDs from {video_id} to {final_revision_video_id}")
+            
+            # Update scenes to use final revision video ID
+            scenes_updated = await update_video_id_for_scenes(video_id, final_revision_video_id, user_id)
+            
+            # Update music to use final revision video ID
+            music_updated = await update_video_id_for_music(video_id, final_revision_video_id, user_id)
+            
+            if scenes_updated:
+                logger.info("REVISION: Scenes updated to final revision video ID successfully")
+            else:
+                logger.warning("REVISION: Failed to update scenes to final revision video ID")
+                
+            if music_updated:
+                logger.info("REVISION: Music updated to final revision video ID successfully")
+            else:
+                logger.warning("REVISION: No music record found to update to final revision video ID")
+        else:
+            logger.info("REVISION: No final video ID update needed")
+        # 14. Final completion
         await update_task_progress(task_id, 100, "Revision processing completed successfully")
 
-        # 14. Send final video to frontend
+        # 15. Send final video to frontend
         logger.info("REVISION: Sending final revised video to frontend...")
         callback_success = await send_video_callback(
             final_video_url=captioned_video_url,
-            video_id=video_id,
+            video_id=final_revision_video_id if final_revision_video_id else video_id,  # Use final revision video ID
             chat_id=data.get("chat_id", ""),
             user_id=user_id,
             callback_url=callback_url,
@@ -569,16 +597,18 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         
         return {
             "status": "completed",
-            "video_id": video_id,
+            "video_id": final_revision_video_id if final_revision_video_id else video_id,
             "parent_video_id": parent_video_id,
             "revision_request": revision_request,
             "base_resized_image_url": base_resized_image_url,
             "scenes_voiceover_regen": len(scenes_needing_voiceover_regen),
             "scenes_visual_regen": len(scenes_needing_visual_regen),
             "music_regenerated": music_needs_regen,
+            "music_url_used": music_url_for_composition,
             "composed_video_url": composed_video_url,
             "final_video_url": final_video_url,
             "captioned_video_url": captioned_video_url,
+            "final_revision_video_id": final_revision_video_id if final_revision_video_id else video_id,
             "callback_sent": callback_success
         }
         
