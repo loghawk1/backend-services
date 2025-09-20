@@ -23,8 +23,8 @@ Your tasks:
    - "visual_description": The visual text provided in the prompt.
    - "voiceover": The voiceover text provided in the prompt.
    - "shot_type": Leave empty string `""` if not specified in the prompt.
-   - "sound_effects": Generate based on the visual description. Use descriptive, cinematic, and artistic language. Avoid psychological manipulation terms (e.g., tension, fear, FOMO). Focus on immersive, luxury, creative sound effects.
-   - "music_direction": Generate a background music description based on the scene's vibe, visuals, and voiceover. Focus on creating a positive, artistic, and creative atmosphere. Describe the music style in terms of emotional impact, such as uplifting, inspiring, luxurious, or powerful, ensuring it enhances the scene without being overly specific or complex. Avoid brand names and overly technical musical jargon.
+   - "sound_effects": Generate based on the scene's vibe, visuals, and voiceover. Focus on creating a positive, artistic, and creative atmosphere. Describe the music style in terms of emotional impact, such as uplifting, inspiring, luxurious, or powerful, ensuring it enhances the scene without being overly specific or complex. Avoid brand names and overly technical musical jargon.
+   - "music_direction": Generate based on the scene's vibe, visuals, and voiceover. Focus on creating a positive, artistic, and creative atmosphere. Describe the music style in terms of emotional impact, such as uplifting, inspiring, luxurious, or powerful, ensuring it enhances the scene without being overly specific or complex. Avoid brand names and overly technical musical jargon.
 5. Always output valid JSON in this format:
 {
   "scenes": [
