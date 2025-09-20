@@ -439,6 +439,8 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     logger.error(f"REVISION: Failed to generate image for scene {scene_number}")
 
         # 8. Re-generate background music if needed
+        music_url_for_composition = ""  # Initialize music URL variable
+        
         if music_needs_regen:
             await update_task_progress(task_id, 75, "Re-generating background music")
             
@@ -456,18 +458,24 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                     if music_stored:
                         logger.info("REVISION: Background music updated successfully")
                         music_url_for_composition = normalized_music_url
-                        logger.info(f"REVISION: Updated music URL for composition: {music_url_for_composition}")
                     else:
                         logger.error("REVISION: Failed to update background music in database")
                 else:
                     logger.error("REVISION: Failed to normalize background music")
             else:
                 logger.error("REVISION: Failed to generate background music")
-        else:
-            logger.info("REVISION: No music regeneration needed, using original music URL")
 
         # 9. Fetch all current scene clip URLs and voiceover URLs
         await update_task_progress(task_id, 85, "Fetching updated assets for final composition")
+        
+        # Fetch current music URL from database (either re-associated original or newly generated)
+        current_music = await get_music_for_video(video_id, user_id)
+        if current_music and current_music.get('music_url'):
+            music_url_for_composition = current_music.get('music_url')
+            logger.info(f"REVISION: Retrieved music URL from database: {music_url_for_composition}")
+        else:
+            logger.info("REVISION: No music found in database for this video")
+            music_url_for_composition = ""
         
         # Get updated scenes from database
         updated_scenes = await get_scenes_for_video(video_id, user_id)
