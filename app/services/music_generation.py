@@ -155,10 +155,17 @@ async def store_music_in_database(music_url: str, video_id: str, user_id: str) -
         else:
             # Insert new record
             logger.info("DATABASE: Inserting new music record...")
-            music_record["created_at"] = datetime.utcnow().isoformat()
-            result = supabase.table("music").insert(music_record).execute()
+            # Remove updated_at from insert payload to avoid PGRST204 error
+            insert_record = {
+                "user_id": user_id,
+                "video_id": video_id,
+                "music_url": music_url,
+                "created_at": datetime.utcnow().isoformat()
+                # Let database handle updated_at automatically with DEFAULT now()
+            }
+            result = supabase.table("music").insert(insert_record).execute()
         
-        if result.data and len(result.data) == 1:
+        if result.data:
             logger.info(f"DATABASE: Music upserted successfully with ID: {result.data[0].get('id')}")
             return True
         else:
