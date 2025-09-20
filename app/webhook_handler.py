@@ -11,6 +11,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 
 from .models import WebhookData, ExtractedData, TaskStatus, ProcessingStats
+from .models import RevisionWebhookData, ExtractedRevisionData
 from .config import get_settings
 
 # Configure logging
@@ -36,7 +37,9 @@ class WebhookHandler:
         """Initialize Redis connections"""
         try:
             logger.info("REDIS: Initializing Redis connections...")
-            logger.info(f"REDIS: Redis URL: {self.settings.redis_url}")
+            # Log Redis URL (mask password for security)
+            masked_url = self.settings.redis_url.replace(self.settings.redis_url.split('@')[0].split('//')[1], 'xxx:xxx') if '@' in self.settings.redis_url else self.settings.redis_url
+            logger.info(f"REDIS: Redis URL: {masked_url}")
             
             # Initialize Redis connection
             self.redis_pool = redis.ConnectionPool.from_url(
@@ -47,7 +50,7 @@ class WebhookHandler:
             logger.info("REDIS: Connection pool created")
             
             # Initialize ARQ pool for task queue
-            logger.info(f"REDIS: Creating ARQ pool using URL: {self.settings.redis_url}")
+            logger.info("REDIS: Creating ARQ pool for task queue...")
             self.arq_pool = await create_pool(RedisSettings.from_dsn(self.settings.redis_url))
             logger.info("REDIS: ARQ pool created successfully")
             
@@ -145,6 +148,59 @@ class WebhookHandler:
             logger.exception("Full traceback:")
             return None
     
+    async def extract_revision_data(self, revision_webhook_data: RevisionWebhookData) -> Optional[ExtractedRevisionData]:
+        """Extract required fields from revision webhook data"""
+        try:
+            logger.info("EXTRACT: Starting revision webhook data extraction...")
+            body = revision_webhook_data.body
+            logger.info(f"EXTRACT: Processing revision webhook body with {len(body)} fields")
+            
+            # Extract required fields from the revision webhook body
+            extracted = ExtractedRevisionData(
+                video_id=body.get("video_id", ""),
+                parent_video_id=body.get("parent_video_id", ""),
+                original_video_id=body.get("original_video_id", ""),
+                chat_id=body.get("chat_id", ""),
+                user_id=body.get("user_email", ""),  # Using email as user_id for consistency
+                user_email=body.get("user_email", ""),
+                user_name=body.get("user_name", ""),
+                revision_request=body.get("revision_request", ""),
+                prompt=body.get("prompt", ""),
+                image_url=body.get("image_url", ""),
+                is_revision=body.get("is_revision", True),
+                timestamp=body.get("timestamp", ""),
+                callback_url=body.get("callback_url", ""),
+                task_id=str(uuid.uuid4())
+            )
+            logger.info(f"EXTRACT: Generated revision task ID: {extracted.task_id}")
+            
+            # Validate that required fields are present
+            required_fields = [
+                ("video_id", extracted.video_id),
+                ("parent_video_id", extracted.parent_video_id),
+                ("revision_request", extracted.revision_request),
+                ("user_email", extracted.user_email),
+                ("callback_url", extracted.callback_url)
+            ]
+            
+            missing_fields = [name for name, value in required_fields if not value]
+            
+            if missing_fields:
+                logger.error(f"EXTRACT: Missing required revision fields: {missing_fields}")
+                return None
+            
+            logger.info(f"EXTRACT: Successfully extracted revision data:")
+            logger.info(f"EXTRACT: Video ID: {extracted.video_id}")
+            logger.info(f"EXTRACT: Parent Video ID: {extracted.parent_video_id}")
+            logger.info(f"EXTRACT: User: {extracted.user_email}")
+            logger.info(f"EXTRACT: Revision request length: {len(extracted.revision_request)} chars")
+            return extracted
+            
+        except Exception as e:
+            logger.error(f"EXTRACT: Failed to extract revision webhook data: {e}")
+            logger.exception("Full traceback:")
+            return None
+    
     async def queue_processing_task(self, extracted_data: ExtractedData) -> str:
         """Queue a processing task using ARQ"""
         try:
@@ -187,6 +243,54 @@ class WebhookHandler:
             
         except Exception as e:
             logger.error(f"QUEUE: Failed to queue processing task: {e}")
+            logger.exception("Full traceback:")
+            raise
+    
+    async def queue_revision_task(self, extracted_data: ExtractedRevisionData) -> str:
+        """Queue a revision processing task using ARQ"""
+        try:
+            logger.info(f"QUEUE: Queuing revision processing task for video: {extracted_data.video_id}")
+            logger.info(f"QUEUE: Parent video: {extracted_data.parent_video_id}")
+            
+            # Store task metadata in Redis
+            redis_client = redis.Redis(connection_pool=self.redis_pool)
+            
+            task_key = f"task:{extracted_data.task_id}"
+            task_data = {
+                "status": "queued",
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+                "data": json.dumps(extracted_data.dict()),
+                "video_id": extracted_data.video_id,
+                "parent_video_id": extracted_data.parent_video_id,
+                "user_id": extracted_data.user_id,
+                "revision_request": extracted_data.revision_request[:100] + "..." if len(extracted_data.revision_request) > 100 else extracted_data.revision_request,
+                "type": "revision"
+            }
+            logger.info(f"QUEUE: Storing revision task metadata in Redis: {task_key}")
+            
+            await redis_client.hset(task_key, mapping=task_data)
+            await redis_client.expire(task_key, 3600)  # Expire after 1 hour
+            logger.info("QUEUE: Revision task metadata stored successfully")
+            
+            # Queue the task for processing
+            logger.info("QUEUE: Enqueueing revision task for ARQ processing...")
+            job = await self.arq_pool.enqueue_job(
+                'process_video_revision',
+                extracted_data.dict(),
+                _job_id=extracted_data.task_id
+            )
+            logger.info(f"QUEUE: Revision task enqueued with job ID: {job.job_id if job else 'None'}")
+            
+            # Update statistics
+            await self._update_stats("queued")
+            logger.info("QUEUE: Statistics updated")
+            
+            logger.info(f"QUEUE: Revision task queued successfully: {extracted_data.task_id}")
+            return extracted_data.task_id
+            
+        except Exception as e:
+            logger.error(f"QUEUE: Failed to queue revision processing task: {e}")
             logger.exception("Full traceback:")
             raise
     
