@@ -233,7 +233,8 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             video_id=video_id,
             chat_id=data.get("chat_id", ""),
             user_id=user_id,
-            callback_url=callback_url
+            callback_url=callback_url,
+            is_revision=False  # Regular video processing
         )
         
         if callback_success:
@@ -511,11 +512,16 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             video_id=video_id,
             chat_id=data.get("chat_id", ""),
             user_id=user_id,
-            callback_url=callback_url
+            callback_url=callback_url,
+            is_revision=True  # Revision processing
         )
         
         logger.info("REVISION: Video revision processing completed successfully!")
         if callback_success:
+            logger.info("REVISION: Frontend callback sent successfully!")
+        else:
+            logger.warning("REVISION: Frontend callback failed, but processing completed")
+        
         return {
             "status": "completed",
             "video_id": video_id,
@@ -529,7 +535,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             "captioned_video_url": captioned_video_url,
             "callback_sent": callback_success
         }
-            logger.info("REVISION: Frontend callback sent successfully!")
+        
     except Exception as e:
         logger.error(f"REVISION: Failed to process video revision: {e}")
         logger.exception("Full traceback:")
@@ -550,8 +556,6 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         
         await update_task_progress(task_id, 0, f"Revision processing failed: {str(e)}")
         return {"status": "failed", "error": str(e)}
-        else:
-            logger.warning("REVISION: Frontend callback failed, but processing completed")
 # ARQ Worker Configuration
 class WorkerSettings:
     # Use REDIS_URL for Railway compatibility - ensure it's loaded properly
