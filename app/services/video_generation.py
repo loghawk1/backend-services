@@ -6,7 +6,7 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_videos_with_fal(scene_image_urls: List[str], video_prompts: List[str]) -> List[str]:
+async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dict]) -> List[str]:
     """Generate videos from scene images using fal.ai MiniMax Hailuo-02 (standard, 768p)"""
     try:
         logger.info(f"FAL: Starting video generation for {len(scene_image_urls)} scene images...")
@@ -25,13 +25,13 @@ async def generate_videos_with_fal(scene_image_urls: List[str], video_prompts: L
                 continue
 
             try:
-                # Get the video prompt for this scene
-                video_prompt = ""
-                if i < len(video_prompts):
-                    video_prompt = video_prompts[i]
+                # Get the visual description for this scene
+                visual_description = ""
+                if i < len(scenes):
+                    visual_description = scenes[i].get("visual_description", "")
 
-                # Use video prompt, fallback to generic prompt
-                prompt = video_prompt if video_prompt else "Create a dynamic product showcase video from this image. Add smooth camera movements and professional lighting effects."
+                # Use visual description as prompt, fallback to generic prompt
+                prompt = visual_description if visual_description else "Create a dynamic product showcase video from this image. Add smooth camera movements and professional lighting effects."
 
                 logger.info(f"FAL: Submitting video request for scene {i+1}...")
                 logger.info(f"FAL: Using image: {image_url}")
