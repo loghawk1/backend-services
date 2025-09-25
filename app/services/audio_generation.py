@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str]:
     """Generate voiceovers for all scenes concurrently using fal.ai ElevenLabs Turbo v2.5"""
     try:
-        logger.info(f"FAL: Starting concurrent voiceover generation for {len(voiceover_prompts)} scenes...")
+        logger.info(f"FAL: Starting concurrent voiceover generation for {len(voiceover_prompts)} voiceover prompts...")
         
         # Initialize results list
         voiceover_urls = [""] * len(voiceover_prompts)
@@ -18,7 +18,7 @@ async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str
         # Phase 1: Submit all voiceover requests concurrently
         logger.info("FAL: Phase 1 - Submitting all voiceover requests...")
         
-        for i, voiceover_prompt in enumerate(voiceover_prompts, 1):
+        for i, voiceover_prompt in enumerate(voiceover_prompts):
             try:
                 # Extract just the text part from the combined voiceover prompt
                 voiceover_text = ""
@@ -31,11 +31,11 @@ async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str
                     voiceover_text = voiceover_prompt[text_start:text_end].strip()
                 
                 if not voiceover_text:
-                    logger.warning(f"FAL: No voiceover text for scene {i}")
+                    logger.warning(f"FAL: No voiceover text for scene {i+1}")
                     handlers.append(None)
                     continue
 
-                logger.info(f"FAL: Submitting voiceover request for scene {i}...")
+                logger.info(f"FAL: Submitting voiceover request for scene {i+1}...")
                 logger.info(f"FAL: Text: {voiceover_text[:50]}...")
 
                 # Submit voiceover generation request using the new Turbo v2.5 model
@@ -52,10 +52,10 @@ async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str
                 )
 
                 handlers.append(handler)
-                logger.info(f"FAL: Scene {i} voiceover request submitted successfully")
+                logger.info(f"FAL: Scene {i+1} voiceover request submitted successfully")
 
             except Exception as e:
-                logger.error(f"FAL: Failed to submit voiceover request for scene {i}: {e}")
+                logger.error(f"FAL: Failed to submit voiceover request for scene {i+1}: {e}")
                 handlers.append(None)
 
         logger.info(f"FAL: Submitted {len([h for h in handlers if h])} out of {len(voiceover_prompts)} voiceover requests")
