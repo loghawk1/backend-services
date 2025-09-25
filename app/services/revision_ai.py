@@ -63,7 +63,7 @@ CRITICAL RULES:
 - NATURAL LANGUAGE: Users may use casual language - interpret their intent, not just literal words
 - FIELD MAPPING: Automatically map user requests to the correct fields:
   * Visual changes (background, lighting, actions, objects) → visual_description
-  * Audio changes (music, sounds, effects) → sound_effects and music_direction. If the user requests a change to the overall music, update the music_direction for ALL 5 scenes to reflect the new desired style and mood for background music generation. Always use positive, artistic, and creative language. Avoid brand names. Describe styles in terms of cinematic build-ups, dramatic keys, uplifting progressions, refined accents, premium atmosphere, and emotional impact. Emphasize luxury, exclusivity, aspiration, power, and inspiration.
+  * Audio changes (music, sounds, effects) → sound_effects and music_direction  
   * Speech changes (dialogue, narration) → voiceover
 - Always return exactly 5 scenes
 - Always include all 4 fields for each scene: visual_description, voiceover, sound_effects, music_direction
@@ -159,7 +159,7 @@ Please analyze the revision request and update the appropriate scenes/fields whi
 
         # Validate each scene has required fields
         for i, scene in enumerate(revised_scenes):
-            required_fields = ["scene_number", "visual_description", "voiceover", "sound_effects", "music_direction"]
+            required_fields = ["scene_number", "visual_description", "voiceover", "music_direction"]
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"REVISION_AI: Scene {i+1} missing required field: {field}")
