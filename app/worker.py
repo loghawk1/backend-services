@@ -120,14 +120,9 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 4. Generate scene images
         await update_task_progress(task_id, 35, "Generating scene images with fal.ai")
 
-        # Add the resized image URL to each scene for Gemini edit model
-        scenes_with_image = []
-        for scene in scenes:
-            scene_with_image = scene.copy()
-            scene_with_image["image_urls"] = [resized_image_url]  # Pass resized product image
-            scenes_with_image.append(scene_with_image)
-
-        scene_image_urls = await generate_scene_images_with_fal(scenes_with_image)
+        # Extract image prompts from scenes
+        image_prompts = [scene.get("image_prompt", "") for scene in scenes]
+        scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
 
         if not scene_image_urls or len(scene_image_urls) != 5:
             await update_task_progress(task_id, 0, "Failed to generate scene images")
@@ -141,7 +136,10 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 6. Generate videos from scene images
         await update_task_progress(task_id, 55, "Generating videos from scene images")
-        video_urls = await generate_videos_with_fal(scene_image_urls, scenes)
+        
+        # Extract video prompts from scenes
+        video_prompts = [scene.get("visual_description", "") for scene in scenes]
+        video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
 
         if not video_urls:
             await update_task_progress(task_id, 0, "Failed to generate videos")
@@ -163,7 +161,10 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # 9. Generate voiceovers for each scene
         await update_task_progress(task_id, 85, "Generating voiceovers")
-        voiceover_urls = await generate_voiceovers_with_fal(scenes)
+        
+        # Extract voiceover prompts from scenes
+        voiceover_prompts = [scene.get("voiceover", "") for scene in scenes]
+        voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
 
         # 10. Update scenes with voiceover URLs
         await update_task_progress(task_id, 90, "Storing voiceover URLs")
@@ -177,7 +178,11 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         raw_music_url = ""
         try:
             logger.info("PIPELINE: Starting background music generation (optional step)...")
-            raw_music_url = await generate_background_music_with_fal(scenes)
+            
+            # Extract music prompts from scenes
+            music_prompts = [scene.get("music_direction", "") for scene in scenes]
+            raw_music_url = await generate_background_music_with_fal(music_prompts)
+            
             if raw_music_url:
                 logger.info("PIPELINE: Background music generated successfully")
             else:
@@ -422,7 +427,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             
             for scene_number, voiceover_text in scenes_needing_voiceover_regen:
                 logger.info(f"REVISION: Re-generating voiceover for scene {scene_number}")
-                new_voiceover_url = await generate_single_voiceover_with_fal(voiceover_text)
+                new_voiceover_url = await generate_single_voiceover_with_fal(voiceover_text)  # voiceover_text is already the combined prompt
                 
                 if new_voiceover_url:
                     # Update specific scene's voiceover_url in database
@@ -443,15 +448,22 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if scenes_needing_visual_regen:
             await update_task_progress(task_id, 62, f"Re-generating {len(scenes_needing_visual_regen)} scene images and videos")
             
-            for scene_number, visual_description in scenes_needing_visual_regen:
+            for scene_number, image_prompt in scenes_needing_visual_regen:
                 logger.info(f"REVISION: Re-generating image and video for scene {scene_number}")
                 
                 # Generate new scene image using the resized base image
-                new_image_url = await generate_single_scene_image_with_fal(visual_description, base_resized_image_url)
+                new_image_url = await generate_single_scene_image_with_fal(image_prompt, base_resized_image_url)
                 
                 if new_image_url:
+                    # Get the video prompt for this scene from revised_scenes
+                    video_prompt = ""
+                    for revised_scene in revised_scenes:
+                        if revised_scene.get("scene_number") == scene_number:
+                            video_prompt = revised_scene.get("visual_description", "")
+                            break
+                    
                     # Generate new scene video from the new image
-                    new_video_url = await generate_single_video_with_fal(new_image_url, visual_description)
+                    new_video_url = await generate_single_video_with_fal(new_image_url, video_prompt)
                     
                     if new_video_url:
                         # Update scene's image_url and scene_clip_url in database
@@ -476,8 +488,9 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if music_needs_regen:
             await update_task_progress(task_id, 77, "Re-generating background music")
             
-            # Generate new background music using revised scenes
-            raw_music_url = await generate_background_music_with_fal(revised_scenes)
+            # Extract music prompts from revised scenes
+            revised_music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
+            raw_music_url = await generate_background_music_with_fal(revised_music_prompts)
             
             if raw_music_url:
                 # Normalize music volume
