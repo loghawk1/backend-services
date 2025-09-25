@@ -58,26 +58,24 @@ async def resize_image_with_fal(image_url: str) -> str:
         return image_url
 
 
-async def generate_scene_images_with_fal(scenes: List[Dict]) -> List[str]:
-    """Generate scene images using fal.ai Gemini edit model based on visual descriptions + existing images"""
+async def generate_scene_images_with_fal(image_prompts: List[str], base_image_url: str) -> List[str]:
+    """Generate scene images using fal.ai Gemini edit model based on combined image prompts + existing images"""
     try:
-        logger.info(f"FAL: Starting scene image generation for {len(scenes)} scenes...")
+        logger.info(f"FAL: Starting scene image generation for {len(image_prompts)} scenes...")
         scene_image_urls = []
 
-        for i, scene in enumerate(scenes, 1):
+        for i, image_prompt in enumerate(image_prompts, 1):
             try:
-                visual_description = scene.get("visual_description", "")
-                image_urls = scene.get("image_urls", [])  # Expecting input scenes to have this field
                 logger.info(f"FAL: Generating image for scene {i}...")
-                logger.info(f"FAL: Visual description: {visual_description[:100]}...")
+                logger.info(f"FAL: Image prompt: {image_prompt[:100]}...")
 
                 # Submit the request using asyncio.to_thread
                 handler = await asyncio.to_thread(
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": visual_description,
-                        "image_urls": image_urls,
+                        "prompt": image_prompt,
+                        "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg"
                     }
@@ -100,7 +98,7 @@ async def generate_scene_images_with_fal(scenes: List[Dict]) -> List[str]:
                 logger.error(f"FAL: Failed to generate image for scene {i}: {e}")
                 scene_image_urls.append("")
 
-        logger.info(f"FAL: Generated {len([url for url in scene_image_urls if url])} out of {len(scenes)} scene images")
+        logger.info(f"FAL: Generated {len([url for url in scene_image_urls if url])} out of {len(image_prompts)} scene images")
         return scene_image_urls
 
     except Exception as e:
