@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
     """Generate background music using Google's Lyria 2 by combining all scene music prompts"""
     try:
-        logger.info(f"FAL: Starting background music generation for {len(music_prompts)} scenes...")
+        logger.info(f"FAL: Starting background music generation from {len(music_prompts)} music prompts...")
         logger.info("FAL: This may take several minutes, please wait...")
         
         # Combine all music prompts from all 5 scenes
@@ -18,7 +18,7 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
         for i, music_prompt in enumerate(music_prompts, 1):
             if music_prompt and music_prompt.strip():
                 combined_music_elements.append(music_prompt.strip())
-                logger.info(f"FAL: Scene {i} music prompt: {music_prompt[:50]}...")
+                logger.info(f"FAL: Music prompt {i}: {music_prompt[:50]}...")
             
         if not combined_music_elements:
             logger.warning("FAL: No music directions or sound effects found, using default prompt")
