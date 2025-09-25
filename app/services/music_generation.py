@@ -6,37 +6,26 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_background_music_with_fal(scenes: List[Dict]) -> str:
-    """Generate background music using Google's Lyria 2 by combining all scene music directions and sound effects"""
+async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
+    """Generate background music using Google's Lyria 2 by combining all scene music prompts"""
     try:
-        logger.info(f"FAL: Starting background music generation for {len(scenes)} scenes...")
+        logger.info(f"FAL: Starting background music generation for {len(music_prompts)} scenes...")
         logger.info("FAL: This may take several minutes, please wait...")
         
-        # Extract music directions and sound effects from all 5 scenes
-        music_directions = []
-        sound_effects = []
+        # Combine all music prompts from all 5 scenes
+        combined_music_elements = []
         
-        for i, scene in enumerate(scenes, 1):
-            music_direction = scene.get("music_direction", "").strip()
-            sound_effect = scene.get("sound_effects", "").strip()
+        for i, music_prompt in enumerate(music_prompts, 1):
+            if music_prompt and music_prompt.strip():
+                combined_music_elements.append(music_prompt.strip())
+                logger.info(f"FAL: Scene {i} music prompt: {music_prompt[:50]}...")
             
-            if music_direction:
-                music_directions.append(music_direction)
-                logger.info(f"FAL: Scene {i} music direction: {music_direction[:50]}...")
-            
-            if sound_effect:
-                sound_effects.append(sound_effect)
-                logger.info(f"FAL: Scene {i} sound effects: {sound_effect[:50]}...")
-        
-        # Combine all music directions and sound effects into one comprehensive prompt
-        combined_elements = music_directions + sound_effects
-        
-        if not combined_elements:
+        if not combined_music_elements:
             logger.warning("FAL: No music directions or sound effects found, using default prompt")
             prompt = "Upbeat commercial background music, energetic and engaging, perfect for product showcase (no words only melody)"
         else:
             # Join all elements with spaces and add the requirement for no vocals
-            prompt = " ".join(combined_elements) + " (no words only melody)"
+            prompt = " ".join(combined_music_elements) + " (no words only melody)"
         
         logger.info(f"FAL: Combined music prompt: {prompt}")
         logger.info(f"FAL: Prompt length: {len(prompt)} characters")
