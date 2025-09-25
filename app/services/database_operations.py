@@ -21,7 +21,6 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
                 "user_id": user_id,
                 "video_id": video_id,
                 "scene_number": scene.get("scene_number", 1),
-                "original_description": scene.get("original_description", "")[:1000],  # New field
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
                 "vioce_over": scene.get("voiceover", "")[:1000],  # Note: matches your table column name
@@ -32,7 +31,7 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
                 "scene_clip_url": None,  # Will be updated later when videos are generated
             }
             scene_records.append(scene_record)
-            logger.info(f"DATABASE: Scene {scene_record['scene_number']} - Original: {scene_record['original_description'][:50]}...")
+            logger.info(f"DATABASE: Scene {scene_record['scene_number']} - Image prompt: {scene_record['image_prompt'][:50]}...")
 
         # Insert all 5 scenes at once
         logger.info(f"DATABASE: Inserting {len(scene_records)} scene records...")
@@ -314,7 +313,6 @@ async def update_scenes_with_revised_content(revised_scenes: List[Dict], video_i
             scene_number = scene.get("scene_number", 1)
             
             update_data = {
-                "original_description": scene.get("original_description", "")[:1000],  # New field
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
                 "vioce_over": scene.get("voiceover", "")[:1000],  # Note: matches your table column name
