@@ -6,21 +6,30 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_voiceovers_with_fal(scenes: List[Dict]) -> List[str]:
+async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str]:
     """Generate voiceovers for all scenes concurrently using fal.ai ElevenLabs Turbo v2.5"""
     try:
-        logger.info(f"FAL: Starting concurrent voiceover generation for {len(scenes)} scenes...")
-
+        logger.info(f"FAL: Starting concurrent voiceover generation for {len(voiceover_prompts)} scenes...")
+        
         # Initialize results list
-        voiceover_urls = [""] * len(scenes)
+        voiceover_urls = [""] * len(voiceover_prompts)
         handlers = []
 
         # Phase 1: Submit all voiceover requests concurrently
         logger.info("FAL: Phase 1 - Submitting all voiceover requests...")
-
-        for i, scene in enumerate(scenes, 1):
+        
+        for i, voiceover_prompt in enumerate(voiceover_prompts, 1):
             try:
-                voiceover_text = scene.get("voiceover", "")
+                # Extract just the text part from the combined voiceover prompt
+                voiceover_text = ""
+                if voiceover_prompt and "text:" in voiceover_prompt:
+                    # Extract text between "text:" and the next field
+                    text_start = voiceover_prompt.find("text:") + 5
+                    text_end = voiceover_prompt.find("delivery:", text_start)
+                    if text_end == -1:
+                        text_end = len(voiceover_prompt)
+                    voiceover_text = voiceover_prompt[text_start:text_end].strip()
+                
                 if not voiceover_text:
                     logger.warning(f"FAL: No voiceover text for scene {i}")
                     handlers.append(None)
@@ -49,7 +58,7 @@ async def generate_voiceovers_with_fal(scenes: List[Dict]) -> List[str]:
                 logger.error(f"FAL: Failed to submit voiceover request for scene {i}: {e}")
                 handlers.append(None)
 
-        logger.info(f"FAL: Submitted {len([h for h in handlers if h])} out of {len(scenes)} voiceover requests")
+        logger.info(f"FAL: Submitted {len([h for h in handlers if h])} out of {len(voiceover_prompts)} voiceover requests")
 
         # Phase 2: Wait for all results concurrently
         logger.info("FAL: Phase 2 - Waiting for all voiceover generation results...")
@@ -106,14 +115,14 @@ async def generate_voiceovers_with_fal(scenes: List[Dict]) -> List[str]:
             # Continue with whatever results we have
 
         successful_voiceovers = len([url for url in voiceover_urls if url])
-        logger.info(f"FAL: Generated {successful_voiceovers} out of {len(scenes)} voiceovers successfully")
+        logger.info(f"FAL: Generated {successful_voiceovers} out of {len(voiceover_prompts)} voiceovers successfully")
 
         # Log final results
         for i, url in enumerate(voiceover_urls):
             if url:
-                logger.info(f"FAL: Scene {i + 1} final voiceover URL: {url}")
+                logger.info(f"FAL: Scene {i+1} final voiceover URL: {url}")
             else:
-                logger.warning(f"FAL: Scene {i + 1} has no voiceover URL")
+                logger.warning(f"FAL: Scene {i+1} has no voiceover URL")
 
         return voiceover_urls
 
