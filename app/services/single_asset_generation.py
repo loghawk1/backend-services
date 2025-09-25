@@ -6,11 +6,26 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_single_voiceover_with_fal(voiceover_text: str) -> str:
+async def generate_single_voiceover_with_fal(voiceover_prompt: str) -> str:
     """Generate a single voiceover using fal.ai ElevenLabs Turbo v2.5"""
     try:
         logger.info(f"FAL: Starting single voiceover generation...")
-        logger.info(f"FAL: Text: {voiceover_text[:50]}...")
+        
+        # Extract just the text part from the combined voiceover prompt
+        voiceover_text = ""
+        if voiceover_prompt and "text:" in voiceover_prompt:
+            # Extract text between "text:" and the next field
+            text_start = voiceover_prompt.find("text:") + 5
+            text_end = voiceover_prompt.find("delivery:", text_start)
+            if text_end == -1:
+                text_end = len(voiceover_prompt)
+            voiceover_text = voiceover_prompt[text_start:text_end].strip()
+        
+        if not voiceover_text:
+            logger.error("FAL: No voiceover text found in prompt")
+            return ""
+            
+        logger.info(f"FAL: Extracted text: {voiceover_text[:50]}...")
 
         # Submit voiceover generation request
         handler = await asyncio.to_thread(
@@ -44,11 +59,11 @@ async def generate_single_voiceover_with_fal(voiceover_text: str) -> str:
         return ""
 
 
-async def generate_single_scene_image_with_fal(visual_description: str, base_image_url: str) -> str:
+async def generate_single_scene_image_with_fal(image_prompt: str, base_image_url: str) -> str:
     """Generate a single scene image using fal.ai Gemini edit model"""
     try:
         logger.info(f"FAL: Starting single scene image generation...")
-        logger.info(f"FAL: Visual description: {visual_description[:100]}...")
+        logger.info(f"FAL: Image prompt: {image_prompt[:100]}...")
         logger.info(f"FAL: Base image URL: {base_image_url}")
 
         # Submit image generation request
@@ -56,7 +71,7 @@ async def generate_single_scene_image_with_fal(visual_description: str, base_ima
             fal_client.submit,
             "fal-ai/gemini-25-flash-image/edit",
             arguments={
-                "prompt": visual_description,
+                "prompt": image_prompt,
                 "image_urls": [base_image_url],
                 "num_images": 1,
                 "output_format": "jpeg"
