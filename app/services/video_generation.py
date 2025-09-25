@@ -41,7 +41,7 @@ async def generate_videos_with_fal(scene_image_urls: List[str], video_prompts: L
                         "image_url": image_url,
                         "duration": "6",            # 6 seconds
                         "prompt_optimizer": True,   # keep true for better results
-                        "resolution": "768P"        # default high resolution
+                        "resolution": "512P"        # default high resolution
                     }
                 )
 
