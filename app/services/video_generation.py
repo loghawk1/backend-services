@@ -6,34 +6,34 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dict]) -> List[str]:
+async def generate_videos_with_fal(scene_image_urls: List[str], video_prompts: List[str]) -> List[str]:
     """Generate videos from scene images using fal.ai MiniMax Hailuo-02 (standard, 768p)"""
     try:
         logger.info(f"FAL: Starting video generation for {len(scene_image_urls)} scene images...")
-
+        
         # Initialize results list
         video_urls = [""] * len(scene_image_urls)
         handlers = []
 
         # Phase 1: Submit all video generation requests concurrently
         logger.info("FAL: Phase 1 - Submitting all video generation requests...")
-
+        
         for i, image_url in enumerate(scene_image_urls):
             if not image_url:
-                logger.warning(f"FAL: No image URL for scene {i + 1}, skipping video generation")
+                logger.warning(f"FAL: No image URL for scene {i+1}, skipping video generation")
                 handlers.append(None)
                 continue
 
             try:
-                # Get the visual description for this scene
-                visual_description = ""
-                if i < len(scenes):
-                    visual_description = scenes[i].get("visual_description", "")
+                # Get the video prompt for this scene
+                video_prompt = ""
+                if i < len(video_prompts):
+                    video_prompt = video_prompts[i]
 
-                # Use visual description as prompt, fallback to generic prompt
-                prompt = visual_description if visual_description else "Create a dynamic product showcase video from this image. Add smooth camera movements and professional lighting effects."
+                # Use video prompt, fallback to generic prompt
+                prompt = video_prompt if video_prompt else "Create a dynamic product showcase video from this image. Add smooth camera movements and professional lighting effects."
 
-                logger.info(f"FAL: Submitting video request for scene {i + 1}...")
+                logger.info(f"FAL: Submitting video request for scene {i+1}...")
                 logger.info(f"FAL: Using image: {image_url}")
                 logger.info(f"FAL: Using prompt: {prompt[:100]}...")
 
@@ -44,17 +44,17 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
                     arguments={
                         "prompt": prompt,
                         "image_url": image_url,
-                        "duration": "6",  # allowed values: "6" or "10"
-                        "prompt_optimizer": True,  # keep true for better results
-                        "resolution": "768P"  # default high resolution
+                        "duration": "6",            # allowed values: "6" or "10"
+                        "prompt_optimizer": True,   # keep true for better results
+                        "resolution": "768P"        # default high resolution
                     }
                 )
 
                 handlers.append(handler)
-                logger.info(f"FAL: Scene {i + 1} video request submitted successfully")
+                logger.info(f"FAL: Scene {i+1} video request submitted successfully")
 
             except Exception as e:
-                logger.error(f"FAL: Failed to submit video request for scene {i + 1}: {e}")
+                logger.error(f"FAL: Failed to submit video request for scene {i+1}: {e}")
                 handlers.append(None)
 
         logger.info(f"FAL: Submitted {len([h for h in handlers if h])} out of {len(scene_image_urls)} video requests")
@@ -96,7 +96,7 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
             # Add timeout to prevent hanging
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
-                timeout=600  # 10 minutes timeout
+                timeout=900  # 15 minutes timeout for video generation
             )
 
             # Process results
@@ -118,9 +118,9 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
         # Log final results
         for i, url in enumerate(video_urls):
             if url:
-                logger.info(f"FAL: Scene {i + 1} final video URL: {url}")
+                logger.info(f"FAL: Scene {i+1} final video URL: {url}")
             else:
-                logger.warning(f"FAL: Scene {i + 1} has no video URL")
+                logger.warning(f"FAL: Scene {i+1} has no video URL")
 
         return video_urls
 
@@ -198,17 +198,17 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
     """Generate videos from scene images using fal.ai MiniMax Hailuo-02 (standard, 768p)"""
     try:
         logger.info(f"FAL: Starting video generation for {len(scene_image_urls)} scene images...")
-
+        
         # Initialize results list
         video_urls = [""] * len(scene_image_urls)
         handlers = []
 
         # Phase 1: Submit all video generation requests concurrently
         logger.info("FAL: Phase 1 - Submitting all video generation requests...")
-
+        
         for i, image_url in enumerate(scene_image_urls):
             if not image_url:
-                logger.warning(f"FAL: No image URL for scene {i + 1}, skipping video generation")
+                logger.warning(f"FAL: No image URL for scene {i+1}, skipping video generation")
                 handlers.append(None)
                 continue
 
@@ -221,7 +221,7 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
                 # Use visual description as prompt, fallback to generic prompt
                 prompt = visual_description if visual_description else "Create a dynamic product showcase video from this image. Add smooth camera movements and professional lighting effects."
 
-                logger.info(f"FAL: Submitting video request for scene {i + 1}...")
+                logger.info(f"FAL: Submitting video request for scene {i+1}...")
                 logger.info(f"FAL: Using image: {image_url}")
                 logger.info(f"FAL: Using prompt: {prompt[:100]}...")
 
@@ -232,17 +232,17 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
                     arguments={
                         "prompt": prompt,
                         "image_url": image_url,
-                        "duration": "6",  # allowed values: "6" or "10"
-                        "prompt_optimizer": True,  # keep true for better results
-                        "resolution": "512P"  # default high resolution
+                        "duration": "6",            # allowed values: "6" or "10"
+                        "prompt_optimizer": True,   # keep true for better results
+                        "resolution": "768P"        # default high resolution
                     }
                 )
 
                 handlers.append(handler)
-                logger.info(f"FAL: Scene {i + 1} video request submitted successfully")
+                logger.info(f"FAL: Scene {i+1} video request submitted successfully")
 
             except Exception as e:
-                logger.error(f"FAL: Failed to submit video request for scene {i + 1}: {e}")
+                logger.error(f"FAL: Failed to submit video request for scene {i+1}: {e}")
                 handlers.append(None)
 
         logger.info(f"FAL: Submitted {len([h for h in handlers if h])} out of {len(scene_image_urls)} video requests")
@@ -284,7 +284,7 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
             # Add timeout to prevent hanging
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
-                timeout=600  # 10 minutes timeout
+                timeout=900  # 15 minutes timeout for video generation
             )
 
             # Process results
@@ -306,9 +306,9 @@ async def generate_videos_with_fal(scene_image_urls: List[str], scenes: List[Dic
         # Log final results
         for i, url in enumerate(video_urls):
             if url:
-                logger.info(f"FAL: Scene {i + 1} final video URL: {url}")
+                logger.info(f"FAL: Scene {i+1} final video URL: {url}")
             else:
-                logger.warning(f"FAL: Scene {i + 1} has no video URL")
+                logger.warning(f"FAL: Scene {i+1} has no video URL")
 
         return video_urls
 
