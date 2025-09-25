@@ -120,7 +120,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 4. Generate scene images
         await update_task_progress(task_id, 35, "Generating scene images with fal.ai")
 
-        # Extract image prompts from scenes
+        # Extract image prompts from scenes (these are now combined strings)
         image_prompts = [scene.get("image_prompt", "") for scene in scenes]
         scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
 
@@ -137,7 +137,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 6. Generate videos from scene images
         await update_task_progress(task_id, 55, "Generating videos from scene images")
         
-        # Extract video prompts from scenes
+        # Extract video prompts from scenes (these are now combined strings)
         video_prompts = [scene.get("visual_description", "") for scene in scenes]
         video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
 
@@ -162,7 +162,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 9. Generate voiceovers for each scene
         await update_task_progress(task_id, 85, "Generating voiceovers")
         
-        # Extract voiceover prompts from scenes
+        # Extract voiceover prompts from scenes (these are now combined strings)
         voiceover_prompts = [scene.get("voiceover", "") for scene in scenes]
         voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
 
@@ -396,7 +396,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             scene_number = revised.get("scene_number", i + 1)
             
             # Check if voiceover changed
-            original_voiceover = original.get("vioce_over", "")  # Note: matches table column name
+            original_voiceover = original.get("vioce_over", "")  # Note: matches table column name 'vioce_over'
             revised_voiceover = revised.get("voiceover", "")
             if original_voiceover != revised_voiceover:
                 scenes_needing_voiceover_regen.append((scene_number, revised_voiceover))
@@ -406,7 +406,13 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             original_visual = original.get("visual_description", "")
             revised_visual = revised.get("visual_description", "")
             if original_visual != revised_visual:
-                scenes_needing_visual_regen.append((scene_number, revised_visual))
+                # Store both the image_prompt and visual_description for regeneration
+                revised_image_prompt = ""
+                for revised_scene in revised_scenes:
+                    if revised_scene.get("scene_number") == scene_number:
+                        revised_image_prompt = revised_scene.get("image_prompt", "")
+                        break
+                scenes_needing_visual_regen.append((scene_number, revised_image_prompt, revised_visual))
                 logger.info(f"REVISION: Scene {scene_number} visual description changed")
 
             # Check if sound effects or music direction changed
@@ -448,20 +454,13 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if scenes_needing_visual_regen:
             await update_task_progress(task_id, 62, f"Re-generating {len(scenes_needing_visual_regen)} scene images and videos")
             
-            for scene_number, image_prompt in scenes_needing_visual_regen:
+            for scene_number, image_prompt, video_prompt in scenes_needing_visual_regen:
                 logger.info(f"REVISION: Re-generating image and video for scene {scene_number}")
                 
                 # Generate new scene image using the resized base image
                 new_image_url = await generate_single_scene_image_with_fal(image_prompt, base_resized_image_url)
                 
                 if new_image_url:
-                    # Get the video prompt for this scene from revised_scenes
-                    video_prompt = ""
-                    for revised_scene in revised_scenes:
-                        if revised_scene.get("scene_number") == scene_number:
-                            video_prompt = revised_scene.get("visual_description", "")
-                            break
-                    
                     # Generate new scene video from the new image
                     new_video_url = await generate_single_video_with_fal(new_image_url, video_prompt)
                     
@@ -488,7 +487,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if music_needs_regen:
             await update_task_progress(task_id, 77, "Re-generating background music")
             
-            # Extract music prompts from revised scenes
+            # Extract music prompts from revised scenes (these are now combined strings)
             revised_music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
             raw_music_url = await generate_background_music_with_fal(revised_music_prompts)
             
