@@ -41,7 +41,7 @@ async def generate_videos_with_fal(scene_image_urls: List[str], video_prompts: L
                         "image_url": image_url,
                         "duration": "6",            # 6 seconds
                         "prompt_optimizer": True,   # keep true for better results
-                        "resolution": "512P"        # default high resolution
+                        "resolution": "768P"        # default high resolution
                     }
                 )
 
@@ -138,28 +138,33 @@ async def compose_final_video(video_urls: List[str]) -> str:
             logger.error("FAL: No valid video URLs for composition")
             return ""
         
-        # Create tracks for composition - each video plays sequentially
-        tracks = []
-        current_timestamp = 0
+        # Create tracks for composition using the official API format
+        # Single video track with keyframes for each scene
+        keyframes = []
         
         for i, video_url in enumerate(valid_video_urls):
-            track = {
-                "id": f"scene_{i+1}",
-                "type": "video",
-                "keyframes": [
-                    {
-                        "url": video_url,
-                        "timestamp": current_timestamp,
-                        "duration": 6,  # Each scene is 6 seconds
-                        "include_audio": False  # Exclude audio from scene videos
-                    }
-                ]
+            if i >= 5:  # Only use first 5 videos
+                break
+                
+            timestamp = i * 6000  # Convert to milliseconds (6 seconds each)
+            keyframe = {
+                "url": video_url,
+                "timestamp": timestamp,
+                "duration": 6000  # 6 seconds in milliseconds
             }
-            tracks.append(track)
-            current_timestamp += 6  # Move to next 6-second slot
-            logger.info(f"FAL: Added scene {i+1} at timestamp {current_timestamp - 6}s")
+            keyframes.append(keyframe)
+            logger.info(f"FAL: Added scene {i+1} at timestamp {timestamp/1000}s")
         
-        logger.info(f"FAL: Total composition duration: {current_timestamp} seconds")
+        # Create the track structure according to official docs
+        tracks = [
+            {
+                "id": "main_video_track",
+                "type": "video",
+                "keyframes": keyframes
+            }
+        ]
+        
+        logger.info(f"FAL: Total composition duration: {len(keyframes) * 6} seconds")
         logger.info("FAL: Submitting composition request...")
         
         # Submit the composition request
@@ -167,7 +172,6 @@ async def compose_final_video(video_urls: List[str]) -> str:
             fal_client.submit,
             "fal-ai/ffmpeg-api/compose",
             arguments={
-                "compose_mode": "timeline",
                 "tracks": tracks
             }
         )
