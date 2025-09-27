@@ -396,7 +396,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             scene_number = revised.get("scene_number", i + 1)
             
             # Check if voiceover changed
-            original_voiceover = original.get("vioce_over", "")  # Note: matches table column name 'vioce_over'
+            original_voiceover = original.get("voiceover", "")  # Fixed: use correct field name
             revised_voiceover = revised.get("voiceover", "")
             if original_voiceover != revised_voiceover:
                 scenes_needing_voiceover_regen.append((scene_number, revised_voiceover))
@@ -487,11 +487,14 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if music_needs_regen:
             await update_task_progress(task_id, 77, "Re-generating background music")
             
+            logger.info("REVISION: Music regeneration requested by AI")
+            
             # Extract music prompts from revised scenes (these are now combined strings)
             revised_music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
             raw_music_url = await generate_background_music_with_fal(revised_music_prompts)
             
             if raw_music_url:
+                logger.info(f"REVISION: New music generated successfully: {raw_music_url}")
                 # Normalize music volume
                 normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
                 
@@ -505,10 +508,30 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                         logger.info(f"REVISION: Music URL for composition set: {music_url_for_composition}")
                     else:
                         logger.error("REVISION: Failed to update background music in database")
+                        # Fallback to existing music if database update fails
+                        logger.info("REVISION: Attempting to use existing music as fallback...")
+                        current_music = await get_music_for_video(video_id, user_id)
+                        if current_music and current_music.get('music_url'):
+                            music_url_for_composition = current_music.get('music_url')
+                            logger.info(f"REVISION: Using existing music as fallback: {music_url_for_composition}")
                 else:
                     logger.error("REVISION: Failed to normalize background music")
+                    # Fallback to existing music if normalization fails
+                    logger.info("REVISION: Attempting to use existing music as fallback...")
+                    current_music = await get_music_for_video(video_id, user_id)
+                    if current_music and current_music.get('music_url'):
+                        music_url_for_composition = current_music.get('music_url')
+                        logger.info(f"REVISION: Using existing music as fallback: {music_url_for_composition}")
             else:
                 logger.error("REVISION: Failed to generate background music")
+                # Fallback to existing music if generation fails
+                logger.info("REVISION: Music generation failed, attempting to use existing music as fallback...")
+                current_music = await get_music_for_video(video_id, user_id)
+                if current_music and current_music.get('music_url'):
+                    music_url_for_composition = current_music.get('music_url')
+                    logger.info(f"REVISION: Using existing music as fallback: {music_url_for_composition}")
+                else:
+                    logger.warning("REVISION: No existing music found, proceeding without background music")
         else:
             # No music regeneration needed - fetch existing music from database
             logger.info("REVISION: No music regeneration needed, fetching existing music...")
@@ -518,7 +541,6 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
                 logger.info(f"REVISION: Retrieved existing music URL from database: {music_url_for_composition}")
             else:
                 logger.info("REVISION: No existing music found in database for this video")
-                music_url_for_composition = ""  # Ensure it's set to empty string if no music found
                 music_url_for_composition = ""  # Ensure it's set to empty string if no music found
 
         # 9. Fetch all current scene clip URLs and voiceover URLs  
