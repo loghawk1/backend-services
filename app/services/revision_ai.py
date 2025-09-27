@@ -32,58 +32,75 @@ async def generate_revised_scenes_with_gpt4(
         for scene in original_scenes:
             scene_data = {
                 "scene_number": scene.get("scene_number", 1),
+                "image_prompt": scene.get("image_prompt", ""),
                 "visual_description": scene.get("visual_description", ""),
-                "voiceover": scene.get("vioce_over", ""),  # Note: matches your table column name
+                "voiceover": scene.get("voiceover", ""),  # Fixed: use correct field name
                 "sound_effects": scene.get("sound_effects", ""),
                 "music_direction": scene.get("music_direction", "")
             }
             scenes_for_ai.append(scene_data)
             logger.info(f"REVISION_AI: Original Scene {scene_data['scene_number']}: {scene_data['visual_description'][:50]}...")
 
-        system_prompt = """You are an AI assistant that processes video revision requests by updating scene breakdowns.
+        system_prompt = """You are an expert AI video revision specialist that processes user revision requests with surgical precision.
 
-Your tasks:
-1. Analyze the user's revision request carefully.
-2. Review the 5 original scenes provided.
-3. INTELLIGENTLY identify which scene(s) and fields need updating by:
-   - If the user mentions a specific scene number, target that scene
-   - If the user describes content without scene numbers (e.g., "the man running", "the woman with the bag"), search through all scenes to find matching visual_description or voiceover content
-   - If the user makes global requests (e.g., "change the music", "make it more dramatic"), apply changes to ALL relevant scenes and fields
-   - If the user mentions specific elements (e.g., "background", "lighting", "movement"), map these to visual_description changes
-   - If the user mentions audio elements (e.g., "music", "sound", "audio"), map these to sound_effects and music_direction changes
-   - If the user mentions dialogue or speech (e.g., "what she says", "the voiceover"), map these to voiceover changes
-4. Generate a complete JSON structure for all 5 scenes with the requested changes applied.
-5. For scenes/fields NOT affected by the revision request, keep their original values exactly as provided.
-6. For scenes/fields that ARE affected by the revision request, update them according to the user's intent.
+CRITICAL DATABASE FIELD MAPPING:
+- image_prompt: Combined image generation prompt
+- visual_description: Video motion and visual elements
+- voiceover: Spoken dialogue/narration text
+- sound_effects: Audio effects and ambient sounds
+- music_direction: Background music style and mood
 
-CRITICAL RULES:
-- SMART INFERENCE: When users don't specify scene numbers, analyze the content of all scenes to find what they're referring to
-- CONTEXT MATCHING: Match user descriptions to existing scene content (e.g., "the running man" should match a scene with running in the visual_description)
-- GLOBAL vs SPECIFIC: Distinguish between global changes (affecting all scenes) and specific changes (affecting one scene)
-- NATURAL LANGUAGE: Users may use casual language - interpret their intent, not just literal words
-- FIELD MAPPING: Automatically map user requests to the correct fields:
-  * Visual changes (background, lighting, actions, objects) → visual_description
-  * Audio changes (music, sounds, effects) → sound_effects and music_direction  
-  * Speech changes (dialogue, narration) → voiceover
+REVISION ANALYSIS PROTOCOL:
+
+1. PARSE USER INTENT with extreme precision:
+   - "movement", "motion", "action", "camera" → ONLY visual_description
+   - "background", "lighting", "scene", "visual" → ONLY visual_description + image_prompt
+   - "dialogue", "speech", "narration", "voice", "says" → ONLY voiceover
+   - "music", "soundtrack", "background music" → ONLY music_direction
+   - "sound", "audio effects", "ambient" → ONLY sound_effects
+   - Scene numbers (1-5) → Target ONLY that specific scene
+   - "all scenes", "entire video", "everything" → Apply to ALL scenes
+
+2. FIELD PRESERVATION RULE:
+   - If a field is NOT mentioned in the revision request → Return EXACT original value
+   - If a field IS mentioned → Update according to user's specific request
+   - NEVER make assumptions or "helpful" changes to unmentioned fields
+
+3. SMART CONTENT MATCHING:
+   - When user describes content without scene numbers, search ALL scenes
+   - Match user descriptions to existing visual_description or voiceover content
+   - Example: "the woman walking" should find scene with woman walking in visual_description
+
+4. CHANGE SCOPE DETECTION:
+   - SPECIFIC: "change scene 3's background" → Only scene 3, only visual_description + image_prompt
+   - GLOBAL: "make the music more dramatic" → All 5 scenes, only music_direction
+   - TARGETED: "the man should run faster" → Find scene with man, only visual_description
+
+FORBIDDEN BEHAVIORS:
+- NEVER change unmentioned fields "for consistency"
+- NEVER make "improvements" not requested by user
+- NEVER assume related changes (e.g., changing music when user asks for visual changes)
+- NEVER modify scene_number values
+
+OUTPUT REQUIREMENTS:
 - Always return exactly 5 scenes
-- Always include all 4 fields for each scene: visual_description, voiceover, sound_effects, music_direction
-- If a field is not affected by the revision request, keep its original value EXACTLY
-- If a field is affected, update it appropriately while maintaining narrative consistency
-- Use descriptive, cinematic language for sound_effects and music_direction
-- Keep voiceovers concise and engaging (under 100 characters)
-- Make visual descriptions detailed and cinematic
-- When making changes, ensure they fit naturally with the overall video narrative and flow
+- Always include all 5 fields for each scene: image_prompt, visual_description, voiceover, sound_effects, music_direction
+- Preserve original values for unchanged fields EXACTLY (no paraphrasing)
+- Only modify fields explicitly or implicitly targeted by the revision request
 
-EXAMPLES OF SMART INFERENCE:
-- "I don't like the way the man is moving" → Find scene with man in visual_description, update that scene's visual_description
-- "Change the music to something dramatic" → Update music_direction in ALL 5 scenes to dramatic style
-- "Make the background more luxurious" → Update visual_description in scenes that mention backgrounds
-- "The woman should be sitting instead of walking" → Find scene with woman walking, change to sitting in visual_description
-Output format (JSON only, no explanations):
+EXAMPLE MAPPINGS:
+- "make the character move slower" → Find scene with character movement, update ONLY visual_description
+- "change the background music to jazz" → Update ONLY music_direction in ALL 5 scenes
+- "the woman should say something different" → Find scene with woman, update ONLY voiceover
+- "add more lighting to scene 2" → Scene 2 only, update ONLY visual_description + image_prompt
+- "remove the sound effects" → Update ONLY sound_effects in ALL 5 scenes to empty or minimal
+
+Output format (JSON only, no explanations or markdown):
 {
   "scenes": [
     {
       "scene_number": 1,
+      "image_prompt": "...",
       "visual_description": "...",
       "voiceover": "...",
       "sound_effects": "...",
@@ -99,7 +116,12 @@ Output format (JSON only, no explanations):
 ORIGINAL SCENES:
 {json.dumps(scenes_for_ai, indent=2)}
 
-Please analyze the revision request and update the appropriate scenes/fields while keeping unchanged elements exactly as they are."""
+INSTRUCTIONS:
+1. Analyze the revision request with surgical precision
+2. Identify EXACTLY which fields need changes based on the request
+3. For unchanged fields, return the EXACT original values (no paraphrasing)
+4. For changed fields, implement the user's specific request
+5. Return complete JSON with all 5 scenes and all 5 fields per scene"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -159,7 +181,7 @@ Please analyze the revision request and update the appropriate scenes/fields whi
 
         # Validate each scene has required fields
         for i, scene in enumerate(revised_scenes):
-            required_fields = ["scene_number", "visual_description", "voiceover", "music_direction"]
+            required_fields = ["scene_number", "image_prompt", "visual_description", "voiceover", "sound_effects", "music_direction"]
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"REVISION_AI: Scene {i+1} missing required field: {field}")
