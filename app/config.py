@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
+    # Callback Authentication
+    callback_auth_token: str = ""
+    webhook_secret: str = ""
+
 # Singleton instance of settings
 _settings: Settings = None
 
