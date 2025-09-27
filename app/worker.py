@@ -163,7 +163,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         await update_task_progress(task_id, 85, "Generating voiceovers")
         
         # Extract voiceover prompts from scenes (these are now combined strings)
-        voiceover_prompts = [scene.get("voiceover", "") for scene in scenes]
+        voiceover_prompts = [scene.get("vioce_over", "") for scene in scenes]
         voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
 
         # 10. Update scenes with voiceover URLs
@@ -396,8 +396,8 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
             scene_number = revised.get("scene_number", i + 1)
             
             # Check if voiceover changed
-            original_voiceover = original.get("voiceover", "")  # Fixed: use correct field name
-            revised_voiceover = revised.get("voiceover", "")
+            original_voiceover = original.get("vioce_over", "")  # Fixed: use correct field name
+            revised_voiceover = revised.get("vioce_over", "")
             if original_voiceover != revised_voiceover:
                 scenes_needing_voiceover_regen.append((scene_number, revised_voiceover))
                 logger.info(f"REVISION: Scene {scene_number} voiceover changed")
@@ -555,7 +555,7 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
 
         # Extract URLs for composition
         scene_clip_urls = [scene.get("scene_clip_url", "") for scene in updated_scenes]
-        voiceover_urls = [scene.get("voiceover_url", "") for scene in updated_scenes]
+        voiceover_urls = [scene.get("vioce_over_url", "") for scene in updated_scenes]
 
         logger.info(f"REVISION: Composing final video with {len([url for url in scene_clip_urls if url])} scene clips")
         logger.info(f"REVISION: Using {len([url for url in voiceover_urls if url])} voiceovers")
