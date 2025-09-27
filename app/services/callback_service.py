@@ -74,6 +74,11 @@ async def send_video_callback(
         # Add Authorization header if token is configured
         if settings.callback_auth_token:
             headers["Authorization"] = f"Bearer {settings.callback_auth_token}"
+            # Temporary debug logging to verify token value
+            logger.info(f"CALLBACK: Auth token length: {len(settings.callback_auth_token)}")
+            logger.info(f"CALLBACK: Auth token starts with 'Bearer': {settings.callback_auth_token.startswith('Bearer')}")
+            logger.info(f"CALLBACK: Auth token first 20 chars: {settings.callback_auth_token[:20]}...")
+            logger.info(f"CALLBACK: Full Authorization header: Authorization: Bearer {settings.callback_auth_token[:20]}...")
             logger.info("CALLBACK: Added Authorization header")
         else:
             logger.warning("CALLBACK: No callback auth token configured")
@@ -81,6 +86,9 @@ async def send_video_callback(
         # Add X-Webhook-Secret header if secret is configured
         if settings.webhook_secret:
             headers["X-Webhook-Secret"] = settings.webhook_secret
+            # Temporary debug logging to verify webhook secret value
+            logger.info(f"CALLBACK: Webhook secret length: {len(settings.webhook_secret)}")
+            logger.info(f"CALLBACK: Webhook secret value: {settings.webhook_secret}")
             logger.info("CALLBACK: Added X-Webhook-Secret header")
         else:
             logger.warning("CALLBACK: No webhook secret configured")
@@ -167,6 +175,10 @@ async def send_error_callback(
         # Add Authorization header if token is configured
         if settings.callback_auth_token:
             headers["Authorization"] = f"Bearer {settings.callback_auth_token}"
+            # Temporary debug logging to verify token value
+            logger.info(f"CALLBACK: Error callback - Auth token length: {len(settings.callback_auth_token)}")
+            logger.info(f"CALLBACK: Error callback - Auth token starts with 'Bearer': {settings.callback_auth_token.startswith('Bearer')}")
+            logger.info(f"CALLBACK: Error callback - Auth token first 20 chars: {settings.callback_auth_token[:20]}...")
             logger.info("CALLBACK: Added Authorization header to error callback")
         else:
             logger.warning("CALLBACK: No callback auth token configured for error callback")
@@ -174,6 +186,9 @@ async def send_error_callback(
         # Add X-Webhook-Secret header if secret is configured
         if settings.webhook_secret:
             headers["X-Webhook-Secret"] = settings.webhook_secret
+            # Temporary debug logging to verify webhook secret value
+            logger.info(f"CALLBACK: Error callback - Webhook secret length: {len(settings.webhook_secret)}")
+            logger.info(f"CALLBACK: Error callback - Webhook secret value: {settings.webhook_secret}")
             logger.info("CALLBACK: Added X-Webhook-Secret header to error callback")
         else:
             logger.warning("CALLBACK: No webhook secret configured for error callback")
