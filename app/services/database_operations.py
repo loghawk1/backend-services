@@ -23,7 +23,7 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
                 "scene_number": scene.get("scene_number", 1),
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
-                "voiceover": scene.get("voiceover", "")[:1000],  # Fixed: use correct field name
+                "vioce_over": scene.get("vioce_over", "")[:1000],  # Fixed: use correct field name
                 "sound_effects": "",  # No longer generated separately
                 "music_direction": scene.get("music_direction", "")[:500],
                 "image_url": None,  # Will be updated later when scene images are generated
@@ -315,7 +315,7 @@ async def update_scenes_with_revised_content(revised_scenes: List[Dict], video_i
             update_data = {
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
-                "voiceover": scene.get("voiceover", "")[:1000],  # Fixed: use correct field name
+                "vioce_over": scene.get("vioce_over", "")[:1000],  # Fixed: use correct field name
                 "sound_effects": "",  # No longer generated separately
                 "music_direction": scene.get("music_direction", "")[:500],
                 "updated_at": datetime.utcnow().isoformat()
