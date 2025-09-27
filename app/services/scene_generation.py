@@ -274,7 +274,7 @@ CRITICAL:
                     "original_description": raw_scene.get("original_description", ""),
                     "image_prompt": combined_image_prompt,
                     "visual_description": combined_video_prompt,
-                    "voiceover": combined_voiceover,
+                    "vioce_over": combined_voiceover,
                     "sound_effects": "",  # No longer generated separately
                     "music_direction": combined_music_prompt
                 }
