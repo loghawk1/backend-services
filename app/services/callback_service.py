@@ -65,14 +65,32 @@ async def send_video_callback(
         logger.info(f"CALLBACK: Sending {callback_type} callback with JSON payload...")
         logger.info(f"CALLBACK: Payload: {payload}")
         
+        # Prepare headers with authentication
+        headers = {
+            "User-Agent": "FastAPI-Video-Processor/1.0",
+            "Content-Type": "application/json"
+        }
+        
+        # Add Authorization header if token is configured
+        if settings.callback_auth_token:
+            headers["Authorization"] = f"Bearer {settings.callback_auth_token}"
+            logger.info("CALLBACK: Added Authorization header")
+        else:
+            logger.warning("CALLBACK: No callback auth token configured")
+        
+        # Add X-Webhook-Secret header if secret is configured
+        if settings.webhook_secret:
+            headers["X-Webhook-Secret"] = settings.webhook_secret
+            logger.info("CALLBACK: Added X-Webhook-Secret header")
+        else:
+            logger.warning("CALLBACK: No webhook secret configured")
+        
         # Send POST request with JSON payload
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
                 json=payload,  # ✅ JSON instead of form-data
-                headers={
-                    "User-Agent": "FastAPI-Video-Processor/1.0"
-                }
+                headers=headers
             )
         
         # Log response details
@@ -140,13 +158,31 @@ async def send_error_callback(
         
         logger.info("CALLBACK: Sending error notification...")
         
+        # Prepare headers with authentication
+        headers = {
+            "User-Agent": "FastAPI-Video-Processor/1.0",
+            "Content-Type": "application/json"
+        }
+        
+        # Add Authorization header if token is configured
+        if settings.callback_auth_token:
+            headers["Authorization"] = f"Bearer {settings.callback_auth_token}"
+            logger.info("CALLBACK: Added Authorization header to error callback")
+        else:
+            logger.warning("CALLBACK: No callback auth token configured for error callback")
+        
+        # Add X-Webhook-Secret header if secret is configured
+        if settings.webhook_secret:
+            headers["X-Webhook-Secret"] = settings.webhook_secret
+            logger.info("CALLBACK: Added X-Webhook-Secret header to error callback")
+        else:
+            logger.warning("CALLBACK: No webhook secret configured for error callback")
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
                 json=payload,  # ✅ JSON instead of form-data
-                headers={
-                    "User-Agent": "FastAPI-Video-Processor/1.0"
-                }
+                headers=headers
             )
             
             if response.status_code == 200:
