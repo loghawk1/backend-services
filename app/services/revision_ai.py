@@ -34,7 +34,7 @@ async def generate_revised_scenes_with_gpt4(
                 "scene_number": scene.get("scene_number", 1),
                 "image_prompt": scene.get("image_prompt", ""),
                 "visual_description": scene.get("visual_description", ""),
-                "voiceover": scene.get("voiceover", ""),  # Fixed: use correct field name
+                "vioce_over": scene.get("vioce_over", ""),  # Fixed: use correct field name
                 "sound_effects": scene.get("sound_effects", ""),
                 "music_direction": scene.get("music_direction", "")
             }
@@ -47,6 +47,7 @@ CRITICAL DATABASE FIELD MAPPING:
 - image_prompt: Combined image generation prompt
 - visual_description: Video motion and visual elements
 - voiceover: Spoken dialogue/narration text
+- vioce_over: Spoken dialogue/narration text
 - sound_effects: Audio effects and ambient sounds
 - music_direction: Background music style and mood
 
@@ -55,7 +56,7 @@ REVISION ANALYSIS PROTOCOL:
 1. PARSE USER INTENT with extreme precision:
    - "movement", "motion", "action", "camera" → ONLY visual_description
    - "background", "lighting", "scene", "visual" → ONLY visual_description + image_prompt
-   - "dialogue", "speech", "narration", "voice", "says" → ONLY voiceover
+   - "dialogue", "speech", "narration", "voice", "says" → ONLY vioce_over
    - "music", "soundtrack", "background music" → ONLY music_direction
    - "sound", "audio effects", "ambient" → ONLY sound_effects
    - Scene numbers (1-5) → Target ONLY that specific scene
@@ -74,7 +75,7 @@ REVISION ANALYSIS PROTOCOL:
 4. CHANGE SCOPE DETECTION:
    - SPECIFIC: "change scene 3's background" → Only scene 3, only visual_description + image_prompt
    - GLOBAL: "make the music more dramatic" → All 5 scenes, only music_direction
-   - TARGETED: "the man should run faster" → Find scene with man, only visual_description
+   - TARGETED: "the woman should say something different" → Find scene with woman, update ONLY vioce_over
 
 FORBIDDEN BEHAVIORS:
 - NEVER change unmentioned fields "for consistency"
@@ -85,6 +86,7 @@ FORBIDDEN BEHAVIORS:
 OUTPUT REQUIREMENTS:
 - Always return exactly 5 scenes
 - Always include all 5 fields for each scene: image_prompt, visual_description, voiceover, sound_effects, music_direction
+- Always include all 5 fields for each scene: image_prompt, visual_description, vioce_over, sound_effects, music_direction
 - Preserve original values for unchanged fields EXACTLY (no paraphrasing)
 - Only modify fields explicitly or implicitly targeted by the revision request
 
@@ -92,6 +94,7 @@ EXAMPLE MAPPINGS:
 - "make the character move slower" → Find scene with character movement, update ONLY visual_description
 - "change the background music to jazz" → Update ONLY music_direction in ALL 5 scenes
 - "the woman should say something different" → Find scene with woman, update ONLY voiceover
+- "the woman should say something different" → Find scene with woman, update ONLY vioce_over
 - "add more lighting to scene 2" → Scene 2 only, update ONLY visual_description + image_prompt
 - "remove the sound effects" → Update ONLY sound_effects in ALL 5 scenes to empty or minimal
 
@@ -102,7 +105,7 @@ Output format (JSON only, no explanations or markdown):
       "scene_number": 1,
       "image_prompt": "...",
       "visual_description": "...",
-      "voiceover": "...",
+     "vioce_over": "...",
       "sound_effects": "...",
       "music_direction": "..."
     },
@@ -181,7 +184,7 @@ INSTRUCTIONS:
 
         # Validate each scene has required fields
         for i, scene in enumerate(revised_scenes):
-            required_fields = ["scene_number", "image_prompt", "visual_description", "voiceover", "sound_effects", "music_direction"]
+            required_fields = ["scene_number", "image_prompt", "visual_description", "vioce_over", "sound_effects", "music_direction"]
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"REVISION_AI: Scene {i+1} missing required field: {field}")
