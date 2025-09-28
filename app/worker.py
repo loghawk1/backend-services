@@ -162,8 +162,16 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # 9. Generate voiceovers for each scene
         await update_task_progress(task_id, 85, "Generating voiceovers")
         
-        # Extract voiceover prompts from scenes (these are now combined strings)
+        # Extract voiceover prompts from scenes (these are now combined strings) 
         voiceover_prompts = [scene.get("vioce_over", "") for scene in scenes]
+        
+        # Debug logging to see what voiceover prompts we have
+        logger.info(f"PIPELINE: Total scenes for voiceover: {len(scenes)}")
+        for i, prompt in enumerate(voiceover_prompts, 1):
+             logger.info(f"PIPELINE: Scene {i} voiceover prompt: '{prompt}'")
+            logger.info(f"PIPELINE: Scene {i} voiceover prompt type: {type(prompt)}")
+            logger.info(f"PIPELINE: Scene {i} voiceover prompt length: {len(prompt) if prompt else 0}")
+        
         voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
 
         # 10. Update scenes with voiceover URLs
