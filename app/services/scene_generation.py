@@ -12,7 +12,7 @@ async def generate_scenes_with_gpt4(prompt: str, openai_client: AsyncOpenAI) -> 
         logger.info("GPT4: Starting enhanced scene generation...")
         logger.info(f"GPT4: Prompt length: {len(prompt)} characters")
 
-        system_prompt = """You are an expert AI video production agent that transforms client-approved Video Plans into simple technical prompts for AI generation tools. 
+        system_prompt = """You are an expert AI video production agent that transforms client-approved Video Plans into simple technical prompts for AI generation tools.
 
 UNDERSTANDING YOUR ROLE
 - The Video Plan is written for client readability, not technical precision.
@@ -43,7 +43,7 @@ OUTPUT STRUCTURE (Simple)
       },
       "video_prompt": {
         "image_description": "<repeat the full image_prompt.base here exactly as a single sentence so Hailou2 knows the static frame>",
-        "your_role": "step-by-step instructions on what to show/do (e.g., start with close-up, then pull back, add subtle light effects, etc.)",
+        "your_role": "<simple instruction of what to do with that image, imperative voice. Examples: 'Make the confetti and the shoes burst into the screen, then settle in place.' or 'Make the person look tired: slight slouch, head down, slowly lift cup to mouth....'>",
         "duration": "<optional: duration if necessary, e.g., '6 seconds exact'>"
       },
       "voiceover": {
@@ -108,6 +108,9 @@ OUTPUT STRUCTURE (Simple)
         logger.info(f"GPT4: Response content length: {len(content)} characters")
         logger.info(f"GPT4: Raw response: {content[:200]}...")
 
+        # Parse JSON response
+        logger.info("GPT4: Parsing enhanced JSON response...")
+
         # Clean the response - remove any markdown formatting
         content = content.strip()
         if content.startswith("```json"):
@@ -146,13 +149,17 @@ OUTPUT STRUCTURE (Simple)
                 image_prompt_obj = raw_scene.get("image_prompt", {})
                 combined_image_prompt = f"base: {image_prompt_obj.get('base', '')} technical_specs: {image_prompt_obj.get('technical_specs', '')} style_modifiers: {image_prompt_obj.get('style_modifiers', '')} consistency_elements: {image_prompt_obj.get('consistency_elements', '')} ai_guidance: {image_prompt_obj.get('ai_guidance', '')}"
 
-                # Combine video_prompt fields
+                # Combine video_prompt fields - only use your_role for visual_description
                 video_prompt_obj = raw_scene.get("video_prompt", {})
-                combined_video_prompt = f"motion_type: {video_prompt_obj.get('motion_type', '')} camera_movement: {video_prompt_obj.get('camera_movement', '')} speed: {video_prompt_obj.get('speed', '')} transition: {video_prompt_obj.get('transition', '')} duration: {video_prompt_obj.get('duration', '6 seconds exact')}"
+                combined_video_prompt = video_prompt_obj.get('your_role', '')
 
                 # Combine voiceover fields
                 voiceover_obj = raw_scene.get("voiceover", {})
-                combined_voiceover = f"text: {voiceover_obj.get('text', '')} delivery: {voiceover_obj.get('delivery', '')} pacing: {voiceover_obj.get('pacing', '')} emphasis: {voiceover_obj.get('emphasis', '')}"
+                combined_voiceover = f"text: {voiceover_obj.get('text', '')} delivery: {voiceover_obj.get('delivery', '')}"
+                
+                # Debug logging for voiceover content
+                logger.info(f"GPT4: Scene {i+1} voiceover object: {voiceover_obj}")
+                logger.info(f"GPT4: Scene {i+1} combined voiceover: {combined_voiceover}")
 
                 # Combine music_prompt fields
                 music_prompt_obj = raw_scene.get("music_prompt", {})
@@ -163,13 +170,14 @@ OUTPUT STRUCTURE (Simple)
                     "original_description": raw_scene.get("original_description", ""),
                     "image_prompt": combined_image_prompt,
                     "visual_description": combined_video_prompt,
-                    "voice_over": combined_voiceover,
+                    "vioce_over": combined_voiceover,  # Keep the typo to match database field
                     "sound_effects": "",  # No longer generated separately
                     "music_direction": combined_music_prompt
                 }
                 
                 processed_scenes.append(processed_scene)
                 logger.info(f"GPT4: Processed Scene {i+1}: {processed_scene['original_description'][:50]}...")
+                logger.info(f"GPT4: Scene {i+1} final vioce_over field: {processed_scene['vioce_over']}")
 
             except Exception as e:
                 logger.error(f"GPT4: Failed to process scene {i+1}: {e}")
