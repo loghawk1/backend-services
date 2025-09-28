@@ -30,6 +30,11 @@ async def generate_voiceovers_with_fal(voiceover_prompts: List[str]) -> List[str
                         text_end = len(voiceover_prompt)
                     voiceover_text = voiceover_prompt[text_start:text_end].strip()
                 
+                # Debug logging to see what we're getting
+                logger.info(f"FAL: Scene {i+1} voiceover prompt: {voiceover_prompt}")
+                logger.info(f"FAL: Scene {i+1} voiceover prompt type: {type(voiceover_prompt)}")
+                logger.info(f"FAL: Scene {i+1} extracted text: '{voiceover_text}'")
+                
                 if not voiceover_text:
                     logger.warning(f"FAL: No voiceover text for scene {i+1}")
                     handlers.append(None)
