@@ -168,8 +168,7 @@ async def process_video_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         # Debug logging to see what voiceover prompts we have
         logger.info(f"PIPELINE: Total scenes for voiceover: {len(scenes)}")
         for i, prompt in enumerate(voiceover_prompts, 1):
-             logger.info(f"PIPELINE: Scene {i} voiceover prompt: '{prompt}'")
-            logger.info(f"PIPELINE: Scene {i} voiceover prompt type: {type(prompt)}")
+            logger.info(f"PIPELINE: Scene {i} voiceover prompt: '{prompt}'")
             logger.info(f"PIPELINE: Scene {i} voiceover prompt length: {len(prompt) if prompt else 0}")
         
         voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
