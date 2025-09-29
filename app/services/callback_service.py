@@ -123,7 +123,8 @@ async def send_error_callback(
     video_id: str,
     chat_id: str,
     user_id: str,
-    callback_url: str = None
+    callback_url: str = None,
+    is_revision: bool = False
 ) -> bool:
     """
     Send error notification to frontend when video processing fails
@@ -134,6 +135,7 @@ async def send_error_callback(
         chat_id: Chat session identifier
         user_id: User identifier
         callback_url: Optional custom callback URL
+        is_revision: Whether this is a revision error (default: False)
         
     Returns:
         True if callback was successful, False otherwise
@@ -142,6 +144,7 @@ async def send_error_callback(
         logger.info("CALLBACK: Sending error callback to frontend...")
         logger.info(f"CALLBACK: Error: {error_message}")
         logger.info(f"CALLBACK: Video ID: {video_id}")
+        logger.info(f"CALLBACK: Is Revision: {is_revision}")
         
         # Use provided callback URL or default
         endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
@@ -150,11 +153,16 @@ async def send_error_callback(
         payload = {
             "error": error_message,
             "video_id": video_id,   # snake_case
-            "videoId": video_id,    # camelCase fallback
             "chat_id": chat_id,
             "user_id": user_id,
-            "status": "failed"
         }
+        
+        # Add is_revision field if this is a revision error
+        if is_revision:
+            payload["is_revision"] = True
+        else:
+            payload["videoId"] = video_id  # camelCase fallback for regular videos
+            payload["status"] = "failed"
         
         logger.info("CALLBACK: Sending error notification...")
         
