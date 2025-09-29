@@ -27,63 +27,67 @@ GENERAL RULES
 - Split screens are forbidden except when absolutely necessary for a direct product comparison (user vs non-user). If used, keep it only one split screen in the whole spot and clearly mark it as a comparison.
 - One clear simple action per scene. Keep motions obvious and physically feasible.
 - Always repeat the image description back to the video generator so it knows exactly what it is animating.
+- **Final scene rule**: The last scene of any ad should include a clear visual cue that the video is ending, such as a subtle fade out or showing the brand/product logo, and the music should gradually fade out.
 
 OUTPUT STRUCTURE (Simple)
 {
-  "scenes": [
+  scenes: [
     {
-      "scene_number": 1,
-      "original_description": "<from Video Plan>",
-      "image_prompt": {
-        "base": "<clear single-sentence description for Nano Banana - what should be generated (objects, people, setting)>",
-        "technical_specs": "9:16 vertical, ultra HD, professional",
-        "style_modifiers": "<vibe keywords, e.g., bold, clean, vibrant>",
-        "consistency_elements": "<product details that must remain identical across scenes>",
-        "ai_guidance": "single focus, minimal background, no text overlay, max 3 people"
+      scene_number: <integer>,
+      original_description: "<from Video Plan>",
+      image_prompt: {
+        base: "<clear single-sentence description for Nano Banana - what should be generated (objects, people, setting)>",
+        technical_specs: "9:16 vertical, ultra HD, professional",
+        style_modifiers: "<vibe keywords, e.g., bold, clean, vibrant>",
+        consistency_elements: "<product details that must remain identical across scenes>",
+        ai_guidance: "single focus, minimal background, no text overlay, max 3 people"
       },
-      "video_prompt": {
-        "image_description": "<repeat the full image_prompt.base here exactly as a single sentence so Hailou2 knows the static frame>",
-        "your_role": "<simple instruction of what to do with that image, imperative voice. Examples: 'Make the confetti and the shoes burst into the screen, then settle in place.' or 'Make the person look tired: slight slouch, head down, slowly lift cup to mouth....'>",
-        "duration": "<optional: duration if necessary, e.g., '6 seconds exact'>"
+      video_prompt: {
+        image_description: "<repeat the full image_prompt.base here exactly as a single sentence so Hailou2 knows the static frame>",
+        your_role: "<very short, simple instruction of what to do with that image — one or two sentences, imperative voice. For example, 'Make the confetti and the shoes burst into the screen, then settle in place.' or 'Make the person look tired: slight slouch, head down, slowly lift cup to mouth.' For final scenes: include brand/logo display or fade-out effect and any subtle finishing motion>",
+        duration: "<optional: duration if necessary, e.g., '6 seconds exact'>"
       },
-      "voiceover": {
-        "text": "<short voice line from the plan — keep it concise (preferably <=15 words)>",
-        "delivery": "<short delivery note, e.g., 'calm, confident' or 'energetic, urgent'>"
+      voiceover: {
+        text: "<short voice line from the plan — keep it concise (preferably <=15 words)>",
+        delivery: "<short delivery note, e.g., 'calm, confident' or 'energetic, urgent'>"
       },
-      "music_prompt": {
-        "style": "<short genre or instrumentation, e.g., 'upbeat electronic' or 'soft piano'>",
-        "mood": "<one-word mood, e.g., 'uplifting', 'energetic', 'sophisticated'>",
-        "intensity": "<1-10 - how present/intense the track should be>"
+      music_prompt: {
+        style: "<short genre or instrumentation, e.g., 'upbeat electronic' or 'soft piano'>",
+        mood: "<one-word mood, e.g., 'uplifting', 'energetic', 'sophisticated'>",
+        intensity: "<1-10 - how present/intense the track should be>",
+        final_scene_fade: "true if this is the final scene; gradually fade out music"
       }
     }
   ],
-  "consistency_framework": {
-    "product_details": {
-      "extracted": "<from plan>",
-      "inferred": "<logical additions>",
-      "locked": "<must remain constant across scenes>"
+  consistency_framework: {
+    product_details: {
+      extracted: "<from plan>",
+      inferred: "<logical additions>",
+      locked: "<must remain constant across scenes>"
     },
-    "visual_thread": "<single-phrase visual connector across scenes, e.g., 'neon color palette and spotlight on product'>"
+    visual_thread: "<single-phrase visual connector across scenes, e.g., 'neon color palette and spotlight on product'>"
   },
-  "quality_assurance": {
-    "critical_rules": [
+  quality_assurance: {
+    critical_rules: [
       "No more than 3 people per scene",
       "No crowd scenes",
       "No running, jumping, fighting, dancing, acrobatics",
       "No complex choreography",
       "No impossible physics",
       "Only one split screen allowed and only for product comparison",
-      "No brand logos or text overlays in image prompts"
+      "No brand logos or text overlays in image prompts except final scene branding"
     ],
-    "optimizations": [
+    optimizations: [
       "Single focus point per scene",
       "Simple, explicit actions only",
       "Always include image_description at top of video_prompt",
       "Keep voiceover short and clear",
-      "Keep music prompt concise"
+      "Keep music prompt concise",
+      "Final scene should visually and audibly indicate the video is ending"
     ]
   }
-}"""
+}
+"""
 
         messages = [
             {"role": "system", "content": system_prompt},
