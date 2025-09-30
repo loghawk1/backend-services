@@ -12,6 +12,7 @@ from arq.connections import RedisSettings
 
 from .models import WebhookData, ExtractedData, TaskStatus, ProcessingStats
 from .models import RevisionWebhookData, ExtractedRevisionData
+from .models import ExtractedWanData
 from .config import get_settings
 
 # Configure logging
@@ -201,6 +202,64 @@ class WebhookHandler:
             logger.exception("Full traceback:")
             return None
     
+    async def extract_wan_data(self, webhook_data: WebhookData) -> Optional[ExtractedWanData]:
+        """Extract required fields from WAN webhook data"""
+        try:
+            logger.info("EXTRACT: Starting WAN webhook data extraction...")
+            body = webhook_data.body
+            logger.info(f"EXTRACT: Processing WAN webhook body with {len(body)} fields")
+            
+            # Extract required fields from the webhook body
+            extracted = ExtractedWanData(
+                prompt=body.get("prompt", ""),
+                video_id=body.get("video_id", ""),
+                chat_id=body.get("chat_id", ""),
+                user_id=body.get("user_id", ""),
+                user_email=body.get("user_email", ""),
+                user_name=body.get("user_name", ""),
+                model=body.get("model", "wan"),
+                request_timestamp=body.get("request_timestamp", ""),
+                source=body.get("source", ""),
+                version=body.get("version", ""),
+                idempotency_key=body.get("idempotency_key", ""),
+                callback_url=body.get("callback_url", ""),
+                webhook_url=body.get("webhookUrl", ""),
+                execution_mode=body.get("executionMode", ""),
+                task_id=str(uuid.uuid4())
+            )
+            logger.info(f"EXTRACT: Generated WAN task ID: {extracted.task_id}")
+            
+            # Validate that required fields are present
+            required_fields = [
+                ("prompt", extracted.prompt),
+                ("video_id", extracted.video_id),
+                ("user_id", extracted.user_id),
+                ("user_email", extracted.user_email)
+            ]
+            
+            missing_fields = [name for name, value in required_fields if not value]
+            
+            if not all([
+                extracted.prompt,
+                extracted.video_id,
+                extracted.user_id,
+                extracted.user_email
+            ]):
+                logger.error(f"EXTRACT: Missing required WAN fields: {missing_fields}")
+                return None
+            
+            logger.info(f"EXTRACT: Successfully extracted WAN data:")
+            logger.info(f"EXTRACT: Video ID: {extracted.video_id}")
+            logger.info(f"EXTRACT: User: {extracted.user_email}")
+            logger.info(f"EXTRACT: Model: {extracted.model}")
+            logger.info(f"EXTRACT: Prompt length: {len(extracted.prompt)} chars")
+            return extracted
+            
+        except Exception as e:
+            logger.error(f"EXTRACT: Failed to extract WAN webhook data: {e}")
+            logger.exception("Full traceback:")
+            return None
+    
     async def queue_processing_task(self, extracted_data: ExtractedData) -> str:
         """Queue a processing task using ARQ"""
         try:
@@ -291,6 +350,53 @@ class WebhookHandler:
             
         except Exception as e:
             logger.error(f"QUEUE: Failed to queue revision processing task: {e}")
+            logger.exception("Full traceback:")
+            raise
+    
+    async def queue_wan_processing_task(self, extracted_data: ExtractedWanData) -> str:
+        """Queue a WAN processing task using ARQ"""
+        try:
+            logger.info(f"QUEUE: Queuing WAN processing task for video: {extracted_data.video_id}")
+            
+            # Store task metadata in Redis
+            redis_client = redis.Redis(connection_pool=self.redis_pool)
+            
+            task_key = f"task:{extracted_data.task_id}"
+            task_data = {
+                "status": "queued",
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+                "data": json.dumps(extracted_data.dict()),
+                "video_id": extracted_data.video_id,
+                "user_id": extracted_data.user_id,
+                "model": extracted_data.model,
+                "prompt": extracted_data.prompt[:100] + "..." if len(extracted_data.prompt) > 100 else extracted_data.prompt,
+                "type": "wan"
+            }
+            logger.info(f"QUEUE: Storing WAN task metadata in Redis: {task_key}")
+            
+            await redis_client.hset(task_key, mapping=task_data)
+            await redis_client.expire(task_key, 3600)  # Expire after 1 hour
+            logger.info("QUEUE: WAN task metadata stored successfully")
+            
+            # Queue the task for processing
+            logger.info("QUEUE: Enqueueing WAN task for ARQ processing...")
+            job = await self.arq_pool.enqueue_job(
+                'process_wan_request',
+                extracted_data.dict(),
+                _job_id=extracted_data.task_id
+            )
+            logger.info(f"QUEUE: WAN task enqueued with job ID: {job.job_id if job else 'None'}")
+            
+            # Update statistics
+            await self._update_stats("queued")
+            logger.info("QUEUE: Statistics updated")
+            
+            logger.info(f"QUEUE: WAN task queued successfully: {extracted_data.task_id}")
+            return extracted_data.task_id
+            
+        except Exception as e:
+            logger.error(f"QUEUE: Failed to queue WAN processing task: {e}")
             logger.exception("Full traceback:")
             raise
     
