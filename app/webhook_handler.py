@@ -232,6 +232,7 @@ class WebhookHandler:
             # Validate that required fields are present
             required_fields = [
                 ("prompt", extracted.prompt),
+                ("image_url", extracted.image_url),
                 ("video_id", extracted.video_id),
                 ("user_id", extracted.user_id),
                 ("user_email", extracted.user_email)
@@ -241,6 +242,7 @@ class WebhookHandler:
             
             if not all([
                 extracted.prompt,
+                extracted.image_url,
                 extracted.video_id,
                 extracted.user_id,
                 extracted.user_email
