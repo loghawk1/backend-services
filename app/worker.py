@@ -283,7 +283,11 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             raise Exception(error_msg)
         
         logger.info(f"WAN_PIPELINE: Generated {len(wan_scenes)} WAN scenes successfully")
-        logger.info(f"WAN_PIPELINE: Music prompt: {music_prompt[:100] if music_prompt else 'None'}...")
+        if music_prompt:
+            logger.info(f"WAN_PIPELINE: Music prompt extracted: {music_prompt[:100]}...")
+        else:
+            logger.warning("WAN_PIPELINE: No music prompt extracted from GPT-4 response")
+            logger.warning("WAN_PIPELINE: This might be due to GPT-4 not following the new system prompt format")
         
         # Debug: Log the generated WAN scenes to see what GPT-4 created
         logger.info("WAN_PIPELINE: === GPT-4 Generated WAN Scenes ===")
@@ -381,6 +385,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         normalized_music_url = ""
         if music_prompt:
+            logger.info(f"WAN_PIPELINE: Using music prompt: {music_prompt}")
             raw_music_url = await generate_wan_background_music_with_fal(music_prompt)
             
             if raw_music_url:
@@ -390,8 +395,12 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
                 
                 # Store music in database
                 await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+                logger.info(f"WAN_PIPELINE: Background music generated and stored: {normalized_music_url}")
+            else:
+                logger.error("WAN_PIPELINE: Failed to generate background music from Lyria")
         else:
-            logger.warning("WAN_PIPELINE: No music prompt provided, skipping music generation")
+            logger.warning("WAN_PIPELINE: No music prompt provided - this indicates GPT-4 didn't return music_prompt")
+            logger.warning("WAN_PIPELINE: Skipping music generation")
         
         # Step 8: Compose final WAN video using JSON2Video
         logger.info("WAN_PIPELINE: Step 8 - Composing WAN videos + voiceovers (JSON2Video Step 1)...")
