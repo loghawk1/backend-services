@@ -242,7 +242,7 @@ class WebhookHandler:
             
             # Filter out None values for optional fields (keep required fields even if None for Pydantic validation)
             filtered_data = {k: v for k, v in wan_data_for_model.items() if v is not None or k in [
-                "prompt", "image_url", "video_id", "user_id", "user_email"
+                "prompt", "image_url", "video_id", "user_id", "user_email", "source"
             ]}
             
             logger.info(f"EXTRACT: Filtered WAN data keys: {list(filtered_data.keys())}")
@@ -258,7 +258,8 @@ class WebhookHandler:
                 ("image_url", extracted.image_url),
                 ("video_id", extracted.video_id),
                 ("user_id", extracted.user_id),
-                ("user_email", extracted.user_email)
+                ("user_email", extracted.user_email),
+                ("source", extracted.source)
             ]
             
             missing_fields = [name for name, value in required_fields if not value]
@@ -268,7 +269,8 @@ class WebhookHandler:
                 extracted.image_url,
                 extracted.video_id,
                 extracted.user_id,
-                extracted.user_email
+                extracted.user_email,
+                extracted.source
             ]):
                 logger.error(f"EXTRACT: Missing required WAN fields: {missing_fields}")
                 return None
