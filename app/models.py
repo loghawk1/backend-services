@@ -66,7 +66,7 @@ class ExtractedWanData(BaseModel):
     user_name: str = Field(..., description="User name")
     model: str = Field(default="wan", description="Model type (should be 'wan')")
     request_timestamp: str = Field(..., description="Original request timestamp")
-    source: str = Field(..., description="Source of the request")
+    source: str = Field(default="web_app", description="Source of the request")
     version: str = Field(..., description="API version")
     idempotency_key: str = Field(..., description="Idempotency key for duplicate detection")
     callback_url: str = Field(..., description="URL to callback when processing is complete")
