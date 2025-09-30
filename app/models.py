@@ -58,6 +58,7 @@ class WanScene(BaseModel):
 class ExtractedWanData(BaseModel):
     """Model for extracted WAN webhook fields"""
     prompt: str = Field(..., description="The storyboard prompt content from the webhook body")
+    image_url: str = Field(..., description="URL of the product image")
     video_id: str = Field(..., description="Unique video identifier")
     chat_id: str = Field(..., description="Chat session identifier")
     user_id: str = Field(..., description="User identifier")
