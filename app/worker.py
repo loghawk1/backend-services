@@ -394,24 +394,47 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             logger.warning("WAN_PIPELINE: No music prompt provided, skipping music generation")
         
         # Step 8: Compose final WAN video using JSON2Video
-        logger.info("WAN_PIPELINE: Step 8 - Composing final WAN video using JSON2Video...")
-        await update_task_progress(extracted_data.task_id, 80, "Composing final WAN video")
+        logger.info("WAN_PIPELINE: Step 8 - Composing WAN videos + voiceovers (JSON2Video Step 1)...")
+        await update_task_progress(extracted_data.task_id, 75, "Composing videos with voiceovers")
         
-        logger.info(f"WAN_PIPELINE: Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs to composition")
+        logger.info(f"WAN_PIPELINE: Step 1 - Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs")
         logger.info(f"WAN_PIPELINE: Video URLs: {video_urls}")
         logger.info(f"WAN_PIPELINE: Voiceover URLs: {voiceover_urls}")
-        logger.info(f"WAN_PIPELINE: Background music URL: {normalized_music_url}")
         
-        final_video_url = await compose_wan_video_with_json2video(video_urls, voiceover_urls, normalized_music_url)
+        # Import the new JSON2Video functions
+        from .services.json2video_composition import compose_wan_videos_and_voiceovers_with_json2video, compose_final_video_with_music_json2video
         
-        if not final_video_url:
-            error_msg = "Failed to compose final WAN video - no video URL returned"
+        # Step 1: Compose videos + voiceovers
+        composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls)
+        
+        if not composed_video_url:
+            error_msg = "Failed to compose WAN videos + voiceovers (Step 1) - no video URL returned"
             logger.error(f"WAN_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
         
-        # Step 9: Send final WAN video to frontend (skip captions since JSON2Video handles them)
-        logger.info("WAN_PIPELINE: Step 9 - Sending final WAN video to frontend...")
+        logger.info(f"WAN_PIPELINE: Step 1 completed - Composed video URL: {composed_video_url}")
+        
+        # Step 9: Compose final video with background music (JSON2Video Step 2)
+        logger.info("WAN_PIPELINE: Step 9 - Adding background music to composed video (JSON2Video Step 2)...")
+        await update_task_progress(extracted_data.task_id, 85, "Adding background music to final video")
+        
+        logger.info(f"WAN_PIPELINE: Step 2 - Adding background music: {normalized_music_url}")
+        
+        final_video_url = ""
+        if normalized_music_url:
+            # Step 2: Add background music to composed video
+            final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url)
+        
+        if not final_video_url:
+            # Fallback to composed video without music if Step 2 fails
+            logger.warning("WAN_PIPELINE: Step 2 failed or no music - using composed video without background music")
+            final_video_url = composed_video_url
+        
+        logger.info(f"WAN_PIPELINE: Final video URL: {final_video_url}")
+        
+        # Step 10: Send final WAN video to frontend (skip captions since JSON2Video handles them)
+        logger.info("WAN_PIPELINE: Step 10 - Sending final WAN video to frontend...")
         await update_task_progress(extracted_data.task_id, 100, "WAN processing completed successfully")
         
         logger.info("WAN_PIPELINE: Sending final WAN video to frontend...")
