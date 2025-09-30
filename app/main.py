@@ -114,32 +114,71 @@ async def handle_webhook(request: Request, background_tasks: BackgroundTasks):
         )
         logger.info(f"WEBHOOK: Data model created for timestamp: {webhook_data.timestamp}")
         
-        # Extract required fields
-        logger.info("WEBHOOK: Extracting required fields from webhook data...")
-        extracted_data = await webhook_handler.extract_webhook_data(webhook_data)
+        # Check if this is a WAN model request
+        model = body_data.get("model", "").lower()
         
-        if not extracted_data:
-            logger.error("WEBHOOK: Failed to extract required data - missing fields")
-            raise HTTPException(status_code=400, detail="Failed to extract required data from webhook")
-        
-        logger.info(f"WEBHOOK: Data extracted - Video ID: {extracted_data.video_id}, User: {extracted_data.user_id}")
-        
-        # Queue the processing task (non-blocking)
-        logger.info("WEBHOOK: Queuing processing task...")
-        task_id = await webhook_handler.queue_processing_task(extracted_data)
-        
-        logger.info(f"WEBHOOK: Processed successfully!")
-        logger.info(f"WEBHOOK: Task ID: {task_id}")
-        logger.info(f"WEBHOOK: Video ID: {extracted_data.video_id}")
-        logger.info(f"WEBHOOK: User ID: {extracted_data.user_id}")
-        
-        return {
-            "status": "success",
-            "message": "Webhook received and queued for processing",
-            "task_id": task_id,
-            "video_id": extracted_data.video_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        if model == "wan":
+            # Handle WAN workflow
+            logger.info("WEBHOOK: WAN model detected - using WAN workflow")
+            
+            # Extract WAN required fields
+            logger.info("WEBHOOK: Extracting required fields from WAN webhook data...")
+            extracted_wan_data = await webhook_handler.extract_wan_data(webhook_data)
+            
+            if not extracted_wan_data:
+                logger.error("WEBHOOK: Failed to extract required WAN data - missing fields")
+                raise HTTPException(status_code=400, detail="Failed to extract required data from WAN webhook")
+            
+            logger.info(f"WEBHOOK: WAN data extracted - Video ID: {extracted_wan_data.video_id}, User: {extracted_wan_data.user_id}")
+            
+            # Queue the WAN processing task (non-blocking)
+            logger.info("WEBHOOK: Queuing WAN processing task...")
+            task_id = await webhook_handler.queue_wan_processing_task(extracted_wan_data)
+            
+            logger.info(f"WEBHOOK: WAN processed successfully!")
+            logger.info(f"WEBHOOK: Task ID: {task_id}")
+            logger.info(f"WEBHOOK: Video ID: {extracted_wan_data.video_id}")
+            logger.info(f"WEBHOOK: User ID: {extracted_wan_data.user_id}")
+            logger.info(f"WEBHOOK: Model: {extracted_wan_data.model}")
+            
+            return {
+                "status": "success",
+                "message": "WAN webhook received and queued for processing",
+                "task_id": task_id,
+                "video_id": extracted_wan_data.video_id,
+                "model": extracted_wan_data.model,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            # Handle regular workflow
+            logger.info("WEBHOOK: Regular model detected - using standard workflow")
+            
+            # Extract required fields
+            logger.info("WEBHOOK: Extracting required fields from webhook data...")
+            extracted_data = await webhook_handler.extract_webhook_data(webhook_data)
+            
+            if not extracted_data:
+                logger.error("WEBHOOK: Failed to extract required data - missing fields")
+                raise HTTPException(status_code=400, detail="Failed to extract required data from webhook")
+            
+            logger.info(f"WEBHOOK: Data extracted - Video ID: {extracted_data.video_id}, User: {extracted_data.user_id}")
+            
+            # Queue the processing task (non-blocking)
+            logger.info("WEBHOOK: Queuing processing task...")
+            task_id = await webhook_handler.queue_processing_task(extracted_data)
+            
+            logger.info(f"WEBHOOK: Processed successfully!")
+            logger.info(f"WEBHOOK: Task ID: {task_id}")
+            logger.info(f"WEBHOOK: Video ID: {extracted_data.video_id}")
+            logger.info(f"WEBHOOK: User ID: {extracted_data.user_id}")
+            
+            return {
+                "status": "success",
+                "message": "Webhook received and queued for processing",
+                "task_id": task_id,
+                "video_id": extracted_data.video_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
         
     except HTTPException:
         raise
