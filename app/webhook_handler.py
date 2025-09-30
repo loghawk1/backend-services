@@ -208,25 +208,36 @@ class WebhookHandler:
             logger.info("EXTRACT: Starting WAN webhook data extraction...")
             body = webhook_data.body
             logger.info(f"EXTRACT: Processing WAN webhook body with {len(body)} fields")
+            # Create a complete dictionary for the ExtractedWanData model
+            wan_data_for_model = {
+                "prompt": body.get("prompt"),
+                "image_url": body.get("image_url"),
+                "video_id": body.get("video_id"),
+                "chat_id": body.get("chat_id"),
+                "user_id": body.get("user_id"),
+                "user_email": body.get("user_email"),
+                "user_name": body.get("user_name"),
+                "model": body.get("model", "wan"),
+                "request_timestamp": body.get("request_timestamp"),
+                "source": body.get("source"),
+                "version": body.get("version"),
+                "idempotency_key": body.get("idempotency_key"),
+                "callback_url": body.get("callback_url"),
+                "webhook_url": body.get("webhookUrl"),
+                "execution_mode": body.get("executionMode"),
+                "task_id": str(uuid.uuid4())
+            }
+            
+            # Filter out None values for optional fields (keep required fields even if None for Pydantic validation)
+            filtered_data = {k: v for k, v in wan_data_for_model.items() if v is not None or k in [
+                "prompt", "image_url", "video_id", "user_id", "user_email"
+            ]}
+            
+            logger.info(f"EXTRACT: Filtered WAN data keys: {list(filtered_data.keys())}")
+            logger.info(f"EXTRACT: Image URL present: {'image_url' in filtered_data and filtered_data['image_url']}")
             
             # Extract required fields from the webhook body
-            extracted = ExtractedWanData(
-                prompt=body.get("prompt", ""),
-                video_id=body.get("video_id", ""),
-                chat_id=body.get("chat_id", ""),
-                user_id=body.get("user_id", ""),
-                user_email=body.get("user_email", ""),
-                user_name=body.get("user_name", ""),
-                model=body.get("model", "wan"),
-                request_timestamp=body.get("request_timestamp", ""),
-                source=body.get("source", ""),
-                version=body.get("version", ""),
-                idempotency_key=body.get("idempotency_key", ""),
-                callback_url=body.get("callback_url", ""),
-                webhook_url=body.get("webhookUrl", ""),
-                execution_mode=body.get("executionMode", ""),
-                task_id=str(uuid.uuid4())
-            )
+            extracted = ExtractedWanData(**filtered_data)
             logger.info(f"EXTRACT: Generated WAN task ID: {extracted.task_id}")
             
             # Validate that required fields are present
