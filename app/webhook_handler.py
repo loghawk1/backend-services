@@ -96,25 +96,36 @@ class WebhookHandler:
             body = webhook_data.body
             logger.info(f"EXTRACT: Processing webhook body with {len(body)} fields")
             
+            # Create a complete dictionary for the ExtractedData model
+            data_for_model = {
+                "prompt": body.get("prompt"),
+                "image_url": body.get("image_url"),
+                "video_id": body.get("video_id"),
+                "chat_id": body.get("chat_id"),
+                "user_id": body.get("user_id"),
+                "user_email": body.get("user_email"),
+                "user_name": body.get("user_name"),
+                "is_revision": body.get("is_revision", False),
+                "request_timestamp": body.get("request_timestamp"),
+                "source": body.get("source"),
+                "version": body.get("version"),
+                "idempotency_key": body.get("idempotency_key"),
+                "callback_url": body.get("callback_url"),
+                "webhook_url": body.get("webhookUrl"),
+                "execution_mode": body.get("executionMode"),
+                "task_id": str(uuid.uuid4())
+            }
+            
+            # Filter out None values for optional fields (keep required fields even if None for Pydantic validation)
+            filtered_data = {k: v for k, v in data_for_model.items() if v is not None or k in [
+                "prompt", "image_url", "video_id", "user_id", "user_email"
+            ]}
+            
+            logger.info(f"EXTRACT: Filtered data keys: {list(filtered_data.keys())}")
+            logger.info(f"EXTRACT: Image URL present: {'image_url' in filtered_data and filtered_data['image_url']}")
+            
             # Extract required fields from the webhook body
-            extracted = ExtractedData(
-                prompt=body.get("prompt", ""),
-                image_url=body.get("image_url", ""),
-                video_id=body.get("video_id", ""),
-                chat_id=body.get("chat_id", ""),
-                user_id=body.get("user_id", ""),
-                user_email=body.get("user_email", ""),
-                user_name=body.get("user_name", ""),
-                is_revision=body.get("is_revision", False),
-                request_timestamp=body.get("request_timestamp", ""),
-                source=body.get("source", ""),
-                version=body.get("version", ""),
-                idempotency_key=body.get("idempotency_key", ""),
-                callback_url=body.get("callback_url", ""),
-                webhook_url=body.get("webhookUrl", ""),
-                execution_mode=body.get("executionMode", ""),
-                task_id=str(uuid.uuid4())
-            )
+            extracted = ExtractedData(**filtered_data)
             logger.info(f"EXTRACT: Generated task ID: {extracted.task_id}")
             
             # Validate that required fields are present
@@ -202,7 +213,7 @@ class WebhookHandler:
             logger.exception("Full traceback:")
             return None
     
-        async def extract_wan_data(self, webhook_data: WebhookData) -> Optional[ExtractedWanData]:
+    async def extract_wan_data(self, webhook_data: WebhookData) -> Optional[ExtractedWanData]:
         """Extract required fields from WAN webhook data"""
         try:
             logger.info("EXTRACT: Starting WAN webhook data extraction...")
@@ -229,19 +240,19 @@ class WebhookHandler:
                 "task_id": str(uuid.uuid4())
             }
             
-            # Filter out None values for optional fields
-            filtered_data = {
-                k: v for k, v in wan_data_for_model.items()
-                if v is not None or k in ["prompt", "image_url", "video_id", "user_id", "user_email"]
-            }
+            # Filter out None values for optional fields (keep required fields even if None for Pydantic validation)
+            filtered_data = {k: v for k, v in wan_data_for_model.items() if v is not None or k in [
+                "prompt", "image_url", "video_id", "user_id", "user_email"
+            ]}
             
             logger.info(f"EXTRACT: Filtered WAN data keys: {list(filtered_data.keys())}")
             logger.info(f"EXTRACT: Image URL present: {'image_url' in filtered_data and filtered_data['image_url']}")
             
+            # Extract required fields from the webhook body
             extracted = ExtractedWanData(**filtered_data)
             logger.info(f"EXTRACT: Generated WAN task ID: {extracted.task_id}")
             
-            # Validate required fields
+            # Validate that required fields are present
             required_fields = [
                 ("prompt", extracted.prompt),
                 ("image_url", extracted.image_url),
@@ -251,7 +262,14 @@ class WebhookHandler:
             ]
             
             missing_fields = [name for name, value in required_fields if not value]
-            if missing_fields:
+            
+            if not all([
+                extracted.prompt,
+                extracted.image_url,
+                extracted.video_id,
+                extracted.user_id,
+                extracted.user_email
+            ]):
                 logger.error(f"EXTRACT: Missing required WAN fields: {missing_fields}")
                 return None
             
@@ -266,7 +284,6 @@ class WebhookHandler:
             logger.error(f"EXTRACT: Failed to extract WAN webhook data: {e}")
             logger.exception("Full traceback:")
             return None
-
 
     
     async def queue_processing_task(self, extracted_data: ExtractedData) -> str:
