@@ -225,7 +225,9 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
             return []
 
         logger.info(f"WAN_GPT4: Response content length: {len(content)} characters")
-        logger.info(f"WAN_GPT4: Raw response: {content[:200]}...")
+        logger.info(f"WAN_GPT4: Raw response preview: {content[:200]}...")
+        logger.info(f"WAN_GPT4: Full raw response from GPT-4:")
+        logger.info(f"WAN_GPT4: {content}")
 
         # Parse JSON response
         logger.info("WAN_GPT4: Parsing WAN JSON response...")
@@ -240,38 +242,62 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 
         if not content:
             logger.error("WAN_GPT4: Content is empty after cleaning")
-            return []
+            return [], ""
 
         # Parse the JSON response
-        parsed_response = json.loads(content)
+        try:
+            parsed_response = json.loads(content)
+            logger.info(f"WAN_GPT4: Parsed response type: {type(parsed_response)}")
+            logger.info(f"WAN_GPT4: Parsed response keys: {list(parsed_response.keys()) if isinstance(parsed_response, dict) else 'Not a dict'}")
+        except json.JSONDecodeError as e:
+            logger.error(f"WAN_GPT4: JSON parsing failed: {e}")
+            logger.error(f"WAN_GPT4: Content that failed to parse: '{content}'")
+            return [], ""
         
         # Handle both array and object with scenes array + music_prompt
         wan_scenes = []
         music_prompt = ""
         
         if isinstance(parsed_response, list):
+            logger.info("WAN_GPT4: Response is array format - extracting scenes only")
             wan_scenes = parsed_response
-            # If it's just an array, there might not be a music_prompt
-            logger.warning("WAN_GPT4: Response is array format - no music_prompt field found")
+            logger.warning("WAN_GPT4: Response is array format - no music_prompt field available")
         elif isinstance(parsed_response, dict):
+            logger.info("WAN_GPT4: Response is dictionary format - extracting scenes and music_prompt")
+            
+            # Extract scenes
             if "scenes" in parsed_response:
                 wan_scenes = parsed_response["scenes"]
+                logger.info(f"WAN_GPT4: Extracted {len(wan_scenes) if isinstance(wan_scenes, list) else 'non-list'} scenes from 'scenes' key")
             else:
-                logger.error("WAN_GPT4: No 'scenes' key found in response")
-                return [], ""
+                logger.error("WAN_GPT4: No 'scenes' key found in dictionary response")
+                logger.error(f"WAN_GPT4: Available keys: {list(parsed_response.keys())}")
+            
+            # Extract music_prompt
             if "music_prompt" in parsed_response:
                 music_prompt = parsed_response["music_prompt"]
-                logger.info(f"WAN_GPT4: Extracted music prompt: {music_prompt[:100]}...")
+                if music_prompt and music_prompt.strip():
+                    logger.info(f"WAN_GPT4: Successfully extracted music prompt: {music_prompt[:100]}...")
+                else:
+                    logger.warning("WAN_GPT4: music_prompt key found but value is empty")
+                    music_prompt = ""
             else:
-                logger.warning("WAN_GPT4: No 'music_prompt' key found in response")
+                logger.warning("WAN_GPT4: No 'music_prompt' key found in dictionary response")
+                logger.warning(f"WAN_GPT4: Available keys: {list(parsed_response.keys())}")
         else:
             logger.error(f"WAN_GPT4: Unexpected response format: {type(parsed_response)}")
+            logger.error(f"WAN_GPT4: Response content: {parsed_response}")
             return [], ""
 
-        if not isinstance(wan_scenes, list) or len(wan_scenes) != 6:
+        # Validate scenes
+        if not isinstance(wan_scenes, list):
+            logger.error(f"WAN_GPT4: wan_scenes is not a list, got: {type(wan_scenes)}")
+            return [], music_prompt  # Still return music_prompt if extracted
+        
+        if len(wan_scenes) != 6:
             logger.error(
-                f"WAN_GPT4: Invalid response format - expected 6 scenes, got {len(wan_scenes) if isinstance(wan_scenes, list) else 'non-list'}")
-            return [], ""
+                f"WAN_GPT4: Invalid scene count - expected 6 scenes, got {len(wan_scenes)}")
+            return [], music_prompt  # Still return music_prompt if extracted
 
         # Validate each scene has required fields
         for i, scene in enumerate(wan_scenes):
@@ -279,18 +305,19 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"WAN_GPT4: Scene {i+1} missing required field: {field}")
-                    return [], ""
+                    return [], music_prompt  # Still return music_prompt if extracted
 
         logger.info(f"WAN_GPT4: Successfully generated {len(wan_scenes)} WAN scenes!")
         for i, scene in enumerate(wan_scenes, 1):
             logger.info(f"WAN_GPT4: Scene {i}: {scene.get('nano_banana_prompt', '')[:50]}...")
+        
+        if music_prompt:
+            logger.info(f"WAN_GPT4: Successfully extracted music prompt: {music_prompt}")
+        else:
+            logger.warning("WAN_GPT4: No music prompt extracted - this will skip music generation")
 
         return wan_scenes, music_prompt
 
-    except json.JSONDecodeError as e:
-        logger.error(f"WAN_GPT4: JSON parsing failed: {e}")
-        logger.error(f"WAN_GPT4: Content that failed to parse: '{content}'")
-        return [], ""
     except Exception as e:
         logger.error(f"WAN_GPT4: Failed to generate WAN scenes: {e}")
         logger.exception("Full traceback:")
