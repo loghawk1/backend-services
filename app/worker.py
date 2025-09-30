@@ -565,16 +565,16 @@ class WorkerSettings:
     # Logging
     log_results = True
     
-    @classmethod
-    def on_startup(cls, ctx):
+    @staticmethod
+    def on_startup(ctx):
         """Called when worker starts"""
         logger.info("WORKER: ARQ worker starting up...")
         logger.info(f"WORKER: Redis URL: {settings.redis_url}")
-        logger.info(f"WORKER: Max concurrent jobs: {cls.max_jobs}")
-        logger.info(f"WORKER: Job timeout: {cls.job_timeout} seconds")
-        logger.info(f"WORKER: Max tries per job: {cls.max_tries}")
+        logger.info(f"WORKER: Max concurrent jobs: {WorkerSettings.max_jobs}")
+        logger.info(f"WORKER: Job timeout: {WorkerSettings.job_timeout} seconds")
+        logger.info(f"WORKER: Max tries per job: {WorkerSettings.max_tries}")
         
-    @classmethod
-    def on_shutdown(cls, ctx):
+    @staticmethod
+    def on_shutdown(ctx):
         """Called when worker shuts down"""
         logger.info("WORKER: ARQ worker shutting down...")
