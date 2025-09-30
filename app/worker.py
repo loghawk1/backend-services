@@ -566,7 +566,7 @@ class WorkerSettings:
     log_results = True
     
     @staticmethod
-    def on_startup(ctx):
+    async def on_startup(ctx):
         """Called when worker starts"""
         logger.info("WORKER: ARQ worker starting up...")
         logger.info(f"WORKER: Redis URL: {settings.redis_url}")
@@ -575,6 +575,6 @@ class WorkerSettings:
         logger.info(f"WORKER: Max tries per job: {WorkerSettings.max_tries}")
         
     @staticmethod
-    def on_shutdown(ctx):
+    async def on_shutdown(ctx):
         """Called when worker shuts down"""
         logger.info("WORKER: ARQ worker shutting down...")
