@@ -253,6 +253,15 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         logger.info(f"WAN_PIPELINE: Generated {len(wan_scenes)} WAN scenes successfully")
         
+        # Debug: Log the generated WAN scenes to see what GPT-4 created
+        logger.info("WAN_PIPELINE: === GPT-4 Generated WAN Scenes ===")
+        for i, scene in enumerate(wan_scenes, 1):
+            logger.info(f"WAN_PIPELINE: Scene {i}:")
+            logger.info(f"WAN_PIPELINE:   nano_banana_prompt: {scene.get('nano_banana_prompt', '')[:100]}...")
+            logger.info(f"WAN_PIPELINE:   elevenlabs_prompt: {scene.get('elevenlabs_prompt', '')}")
+            logger.info(f"WAN_PIPELINE:   wan2_5_prompt: {scene.get('wan2_5_prompt', '')[:100]}...")
+        logger.info("WAN_PIPELINE: === End of GPT-4 Generated WAN Scenes ===")
+        
         # Step 2: Store WAN scenes in database
         logger.info("WAN_PIPELINE: Step 2 - Storing WAN scenes in database...")
         await update_task_progress(extracted_data.task_id, 15, "Storing WAN scenes in database")
@@ -288,10 +297,18 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         # Extract elevenlabs_prompts from WAN scenes
         elevenlabs_prompts = [scene.get("elevenlabs_prompt", "") for scene in wan_scenes]
+        logger.info(f"WAN_PIPELINE: Extracted {len(elevenlabs_prompts)} elevenlabs prompts")
+        for i, prompt in enumerate(elevenlabs_prompts):
+            logger.info(f"WAN_PIPELINE: ElevenLabs prompt {i+1}: {prompt[:100]}...")
+        
         voiceover_urls = await generate_wan_voiceovers_with_fal(elevenlabs_prompts)
+        logger.info(f"WAN_PIPELINE: Generated voiceover URLs: {voiceover_urls}")
         
         if voiceover_urls:
+            logger.info("WAN_PIPELINE: Updating database with voiceover URLs...")
             await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
+        else:
+            logger.error("WAN_PIPELINE: No voiceover URLs generated - voiceover generation failed!")
         
         # Step 6: Generate WAN videos from scene images
         logger.info("WAN_PIPELINE: Step 6 - Generating WAN videos from scene images...")
@@ -310,6 +327,10 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         # Step 7: Compose final WAN video with audio
         logger.info("WAN_PIPELINE: Step 7 - Composing final WAN video with audio...")
         await update_task_progress(extracted_data.task_id, 80, "Composing final WAN video")
+        
+        logger.info(f"WAN_PIPELINE: Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs to composition")
+        logger.info(f"WAN_PIPELINE: Video URLs: {video_urls}")
+        logger.info(f"WAN_PIPELINE: Voiceover URLs: {voiceover_urls}")
         
         final_video_url = await compose_wan_final_video_with_audio(video_urls, voiceover_urls)
         
