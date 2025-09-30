@@ -7,14 +7,14 @@ logger = logging.getLogger(__name__)
 
 
 async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: str) -> bool:
-    """Store generated scenes in Supabase database - creates 5 rows"""
+    """Store generated scenes in Supabase database - creates 5 or 6 rows depending on workflow"""
     try:
         logger.info(f"DATABASE: Storing {len(scenes)} scenes in Supabase for video: {video_id}")
         logger.info(f"DATABASE: User ID: {user_id}")
 
         supabase = get_supabase_client()
 
-        # Prepare scene data for insertion - create 5 rows
+        # Prepare scene data for insertion - create 5 or 6 rows
         scene_records = []
         for scene in scenes:
             scene_record = {
@@ -24,7 +24,7 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
                 "vioce_over": scene.get("vioce_over", "")[:1000],  # Fixed: use correct field name
-                "sound_effects": "",  # No longer generated separately
+                "sound_effects": scene.get("sound_effects", "")[:500],  # Support both workflows
                 "music_direction": scene.get("music_direction", "")[:500],
                 "image_url": None,  # Will be updated later when scene images are generated
                 "voiceover_url": None,  # Will be updated later when voiceovers are generated
@@ -33,17 +33,18 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
             scene_records.append(scene_record)
             logger.info(f"DATABASE: Scene {scene_record['scene_number']} - Image prompt: {scene_record['image_prompt'][:50]}...")
 
-        # Insert all 5 scenes at once
+        # Insert all scenes at once
         logger.info(f"DATABASE: Inserting {len(scene_records)} scene records...")
         result = supabase.table("scenes").insert(scene_records).execute()
 
-        if result.data and len(result.data) == 5:
+        expected_count = len(scenes)
+        if result.data and len(result.data) == expected_count:
             logger.info(f"DATABASE: Successfully stored {len(result.data)} scenes in database")
             for record in result.data:
                 logger.info(f"DATABASE: Scene {record.get('scene_number')} stored with ID: {record.get('id')}")
             return True
         else:
-            logger.error(f"DATABASE: Insert failed - Expected 5 records, got {len(result.data) if result.data else 0}")
+            logger.error(f"DATABASE: Insert failed - Expected {expected_count} records, got {len(result.data) if result.data else 0}")
             return False
 
     except Exception as e:
@@ -52,20 +53,67 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
         return False
 
 
+async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, user_id: str) -> bool:
+    """Store WAN generated scenes in Supabase database - creates 6 rows with WAN-specific mapping"""
+    try:
+        logger.info(f"DATABASE: Storing {len(wan_scenes)} WAN scenes in Supabase for video: {video_id}")
+        logger.info(f"DATABASE: User ID: {user_id}")
+
+        supabase = get_supabase_client()
+
+        # Prepare WAN scene data for insertion - create 6 rows
+        scene_records = []
+        for scene in wan_scenes:
+            scene_record = {
+                "user_id": user_id,
+                "video_id": video_id,
+                "scene_number": scene.get("scene_number", 1),
+                "image_prompt": scene.get("nano_banana_prompt", "")[:2000],  # Map nano_banana_prompt to image_prompt
+                "visual_description": scene.get("wan2_5_prompt", "")[:1000],  # Map wan2_5_prompt to visual_description
+                "vioce_over": scene.get("elevenlabs_prompt", "")[:1000],  # Map elevenlabs_prompt to vioce_over
+                "sound_effects": "",  # WAN workflow doesn't use separate sound effects
+                "music_direction": "",  # WAN workflow doesn't use separate music direction
+                "image_url": None,  # Will be updated later when scene images are generated
+                "voiceover_url": None,  # Will be updated later when voiceovers are generated
+                "scene_clip_url": None,  # Will be updated later when videos are generated
+            }
+            scene_records.append(scene_record)
+            logger.info(f"DATABASE: WAN Scene {scene_record['scene_number']} - Nano Banana prompt: {scene_record['image_prompt'][:50]}...")
+
+        # Insert all 6 WAN scenes at once
+        logger.info(f"DATABASE: Inserting {len(scene_records)} WAN scene records...")
+        result = supabase.table("scenes").insert(scene_records).execute()
+
+        if result.data and len(result.data) == 6:
+            logger.info(f"DATABASE: Successfully stored {len(result.data)} WAN scenes in database")
+            for record in result.data:
+                logger.info(f"DATABASE: WAN Scene {record.get('scene_number')} stored with ID: {record.get('id')}")
+            return True
+        else:
+            logger.error(f"DATABASE: WAN insert failed - Expected 6 records, got {len(result.data) if result.data else 0}")
+            return False
+
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to store WAN scenes in Supabase: {e}")
+        logger.exception("Full traceback:")
+        return False
+
+
 async def update_scenes_with_image_urls(scene_image_urls: List[str], video_id: str, user_id: str) -> bool:
-    """Update the 5 scene rows with their generated image URLs"""
+    """Update the scene rows with their generated image URLs (supports both 5 and 6 scenes)"""
     try:
         logger.info(f"DATABASE: Updating {len(scene_image_urls)} scene image URLs for video: {video_id}")
 
         supabase = get_supabase_client()
 
-        # Get the existing 5 scenes for this video
+        # Get the existing scenes for this video
         result = supabase.table("scenes").select("id, scene_number").eq("video_id", video_id).eq("user_id",
                                                                                                  user_id).order(
             "scene_number").execute()
 
-        if not result.data or len(result.data) != 5:
-            logger.error(f"DATABASE: Expected 5 scenes, found {len(result.data) if result.data else 0}")
+        expected_count = len(scene_image_urls)
+        if not result.data or len(result.data) != expected_count:
+            logger.error(f"DATABASE: Expected {expected_count} scenes, found {len(result.data) if result.data else 0}")
             return False
 
         # Update each scene with its corresponding image URL
@@ -97,19 +145,20 @@ async def update_scenes_with_image_urls(scene_image_urls: List[str], video_id: s
 
 
 async def update_scenes_with_video_urls(video_urls: List[str], video_id: str, user_id: str) -> bool:
-    """Update the 5 scene rows with their generated video URLs in scene_clip_url column"""
+    """Update the scene rows with their generated video URLs in scene_clip_url column (supports both 5 and 6 scenes)"""
     try:
         logger.info(f"DATABASE: Updating {len(video_urls)} scene video URLs for video: {video_id}")
 
         supabase = get_supabase_client()
 
-        # Get the existing 5 scenes for this video
+        # Get the existing scenes for this video
         result = supabase.table("scenes").select("id, scene_number").eq("video_id", video_id).eq("user_id",
                                                                                                  user_id).order(
             "scene_number").execute()
 
-        if not result.data or len(result.data) != 5:
-            logger.error(f"DATABASE: Expected 5 scenes, found {len(result.data) if result.data else 0}")
+        expected_count = len(video_urls)
+        if not result.data or len(result.data) != expected_count:
+            logger.error(f"DATABASE: Expected {expected_count} scenes, found {len(result.data) if result.data else 0}")
             return False
 
         # Update each scene with its corresponding video URL
@@ -138,7 +187,7 @@ async def update_scenes_with_video_urls(video_urls: List[str], video_id: str, us
                 scene_number = scene_record["scene_number"]
                 logger.warning(f"DATABASE: No video URL available for scene {scene_number}")
 
-        logger.info(f"DATABASE: Updated {updated_count} out of 5 scene video URLs in scene_clip_url column")
+        logger.info(f"DATABASE: Updated {updated_count} out of {expected_count} scene video URLs in scene_clip_url column")
         return updated_count > 0
 
     except Exception as e:
@@ -148,19 +197,20 @@ async def update_scenes_with_video_urls(video_urls: List[str], video_id: str, us
 
 
 async def update_scenes_with_voiceover_urls(voiceover_urls: List[str], video_id: str, user_id: str) -> bool:
-    """Update the 5 scene rows with their generated voiceover URLs"""
+    """Update the scene rows with their generated voiceover URLs (supports both 5 and 6 scenes)"""
     try:
         logger.info(f"DATABASE: Updating {len(voiceover_urls)} scene voiceover URLs for video: {video_id}")
 
         supabase = get_supabase_client()
 
-        # Get the existing 5 scenes for this video
+        # Get the existing scenes for this video
         result = supabase.table("scenes").select("id, scene_number").eq("video_id", video_id).eq("user_id",
                                                                                                  user_id).order(
             "scene_number").execute()
 
-        if not result.data or len(result.data) != 5:
-            logger.error(f"DATABASE: Expected 5 scenes, found {len(result.data) if result.data else 0}")
+        expected_count = len(voiceover_urls)
+        if not result.data or len(result.data) != expected_count:
+            logger.error(f"DATABASE: Expected {expected_count} scenes, found {len(result.data) if result.data else 0}")
             return False
 
         # Update each scene with its corresponding voiceover URL
