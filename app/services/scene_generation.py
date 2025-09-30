@@ -245,19 +245,26 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
         # Parse the JSON response
         parsed_response = json.loads(content)
         
-        # Handle both array and object with scenes array
+        # Handle both array and object with scenes array + music_prompt
+        wan_scenes = []
+        music_prompt = ""
+        
         if isinstance(parsed_response, list):
             wan_scenes = parsed_response
-        elif isinstance(parsed_response, dict) and "scenes" in parsed_response:
-            wan_scenes = parsed_response["scenes"]
+        elif isinstance(parsed_response, dict):
+            if "scenes" in parsed_response:
+                wan_scenes = parsed_response["scenes"]
+            if "music_prompt" in parsed_response:
+                music_prompt = parsed_response["music_prompt"]
+                logger.info(f"WAN_GPT4: Extracted music prompt: {music_prompt[:100]}...")
         else:
             logger.error(f"WAN_GPT4: Unexpected response format: {type(parsed_response)}")
-            return []
+            return [], ""
 
         if not isinstance(wan_scenes, list) or len(wan_scenes) != 6:
             logger.error(
                 f"WAN_GPT4: Invalid response format - expected 6 scenes, got {len(wan_scenes) if isinstance(wan_scenes, list) else 'non-list'}")
-            return []
+            return [], ""
 
         # Validate each scene has required fields
         for i, scene in enumerate(wan_scenes):
@@ -265,19 +272,19 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"WAN_GPT4: Scene {i+1} missing required field: {field}")
-                    return []
+                    return [], ""
 
         logger.info(f"WAN_GPT4: Successfully generated {len(wan_scenes)} WAN scenes!")
         for i, scene in enumerate(wan_scenes, 1):
             logger.info(f"WAN_GPT4: Scene {i}: {scene.get('nano_banana_prompt', '')[:50]}...")
 
-        return wan_scenes
+        return wan_scenes, music_prompt
 
     except json.JSONDecodeError as e:
         logger.error(f"WAN_GPT4: JSON parsing failed: {e}")
         logger.error(f"WAN_GPT4: Content that failed to parse: '{content}'")
-        return []
+        return [], ""
     except Exception as e:
         logger.error(f"WAN_GPT4: Failed to generate WAN scenes: {e}")
         logger.exception("Full traceback:")
-        return []
+        return [], ""
