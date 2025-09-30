@@ -251,12 +251,19 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
         
         if isinstance(parsed_response, list):
             wan_scenes = parsed_response
+            # If it's just an array, there might not be a music_prompt
+            logger.warning("WAN_GPT4: Response is array format - no music_prompt field found")
         elif isinstance(parsed_response, dict):
             if "scenes" in parsed_response:
                 wan_scenes = parsed_response["scenes"]
+            else:
+                logger.error("WAN_GPT4: No 'scenes' key found in response")
+                return [], ""
             if "music_prompt" in parsed_response:
                 music_prompt = parsed_response["music_prompt"]
                 logger.info(f"WAN_GPT4: Extracted music prompt: {music_prompt[:100]}...")
+            else:
+                logger.warning("WAN_GPT4: No 'music_prompt' key found in response")
         else:
             logger.error(f"WAN_GPT4: Unexpected response format: {type(parsed_response)}")
             return [], ""
