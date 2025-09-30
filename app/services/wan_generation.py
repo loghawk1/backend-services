@@ -2,15 +2,15 @@ import asyncio
 import logging
 from typing import List, Dict
 import fal_client
-from .image_processing import resize_image_with_fal
 
 logger = logging.getLogger(__name__)
 
 
-async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str]) -> List[str]:
-    """Generate scene images using fal.ai Nano Banana based on nano_banana_prompts"""
+async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], base_image_url: str) -> List[str]:
+    """Generate scene images using fal.ai Gemini edit model based on nano_banana_prompts and resized base image from frontend"""
     try:
-        logger.info(f"WAN: Starting scene image generation for {len(nano_banana_prompts)} scenes...")
+        logger.info(f"WAN: Starting scene image generation for {len(nano_banana_prompts)} scenes using Gemini edit with base image...")
+        logger.info(f"WAN: Base image URL: {base_image_url}")
         
         # Initialize results list
         scene_image_urls = [""] * len(nano_banana_prompts)
@@ -27,14 +27,15 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str]) -> 
                     continue
 
                 logger.info(f"WAN: Submitting image request for scene {i+1}...")
-                logger.info(f"WAN: Nano Banana prompt: {nano_banana_prompt[:100]}...")
+                logger.info(f"WAN: Gemini edit prompt: {nano_banana_prompt[:100]}...")
 
-                # Submit image generation request using Nano Banana
+                # Submit image generation request using Gemini edit model
                 handler = await asyncio.to_thread(
                     fal_client.submit,
-                    "fal-ai/nano-banana",
+                    "fal-ai/gemini-25-flash-image/edit",
                     arguments={
                         "prompt": nano_banana_prompt,
+                        "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg"
                     }
@@ -62,27 +63,16 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str]) -> 
                 result = await asyncio.to_thread(handler.get)
 
                 if result and "images" in result and len(result["images"]) > 0:
-                    raw_image_url = result["images"][0]["url"]
-                    logger.info(f"WAN: Scene {scene_index + 1} raw image generated: {raw_image_url}")
-                    
-                    # Resize the Nano Banana output to 9:16 aspect ratio
-                    logger.info(f"WAN: Resizing scene {scene_index + 1} image to 9:16...")
-                    resized_image_url = await resize_image_with_fal(raw_image_url)
-                    
-                    if resized_image_url and resized_image_url != raw_image_url:
-                        logger.info(f"WAN: Scene {scene_index + 1} image resized successfully: {resized_image_url}")
-                    else:
-                        logger.warning(f"WAN: Scene {scene_index + 1} image resize failed, using original: {raw_image_url}")
-                        resized_image_url = raw_image_url
-                    
-                    return scene_index, resized_image_url
+                    image_url = result["images"][0]["url"]
+                    logger.info(f"WAN: Scene {scene_index + 1} image generated using Gemini edit: {image_url}")
+                    return scene_index, image_url
                 else:
                     logger.error(f"WAN: No image generated for scene {scene_index + 1}")
                     logger.debug(f"WAN: Raw result: {result}")
                     return scene_index, ""
 
             except Exception as e:
-                logger.error(f"WAN: Failed to get/resize image result for scene {scene_index + 1}: {e}")
+                logger.error(f"WAN: Failed to get image result for scene {scene_index + 1}: {e}")
                 return scene_index, ""
 
         # Create tasks for all handlers
@@ -114,7 +104,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str]) -> 
             # Continue with whatever results we have
 
         successful_images = len([url for url in scene_image_urls if url])
-        logger.info(f"WAN: Generated {successful_images} out of {len(nano_banana_prompts)} images successfully")
+        logger.info(f"WAN: Generated {successful_images} out of {len(nano_banana_prompts)} images successfully using Gemini edit")
 
         # Log final results
         for i, url in enumerate(scene_image_urls):
