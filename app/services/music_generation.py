@@ -76,6 +76,64 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
         return ""
 
 
+async def generate_wan_background_music_with_fal(music_prompt: str) -> str:
+    """Generate background music for WAN using Google's Lyria 2 with the music_prompt from GPT-4"""
+    try:
+        logger.info(f"WAN_MUSIC: Starting WAN background music generation...")
+        logger.info(f"WAN_MUSIC: Music prompt: {music_prompt}")
+        logger.info("WAN_MUSIC: This may take several minutes, please wait...")
+        
+        if not music_prompt or not music_prompt.strip():
+            logger.warning("WAN_MUSIC: No music prompt provided, using default")
+            music_prompt = "Lo-fi hip-hop with a light upbeat rhythm, soft percussion, and a steady background flow. Casual and positive, perfect for maintaining a smooth ad vibe across all scenes, ending gently at the final call-to-action."
+        
+        logger.info(f"WAN_MUSIC: Using music prompt: {music_prompt}")
+        
+        # Submit music generation request using Google's Lyria 2
+        logger.info("WAN_MUSIC: Submitting music generation request to Lyria 2...")
+        
+        # Add timeout wrapper for music generation
+        try:
+            handler = await asyncio.to_thread(
+                fal_client.submit,
+                "fal-ai/lyria2",
+                arguments={
+                    "prompt": music_prompt,
+                    "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words, violence, adult themes, negativity"
+                }
+            )
+            
+            logger.info("WAN_MUSIC: Waiting for music generation result (this may take 10-15 minutes)...")
+            
+            # Add timeout for the result waiting
+            result = await asyncio.wait_for(
+                asyncio.to_thread(handler.get),
+                timeout=900  # 15 minutes timeout for music generation
+            )
+            
+        except asyncio.TimeoutError:
+            logger.error("WAN_MUSIC: Music generation timed out after 15 minutes")
+            return ""
+        except Exception as e:
+            logger.error(f"WAN_MUSIC: Music generation request failed: {e}")
+            return ""
+        
+        # Extract music URL from result
+        if result and "audio" in result and "url" in result["audio"]:
+            raw_music_url = result["audio"]["url"]
+            logger.info(f"WAN_MUSIC: Raw WAN background music generated successfully: {raw_music_url}")
+            return raw_music_url
+        else:
+            logger.error("WAN_MUSIC: No music generated")
+            logger.debug(f"WAN_MUSIC: Raw result: {result}")
+            return ""
+    
+    except Exception as e:
+        logger.error(f"WAN_MUSIC: Failed to generate WAN background music: {e}")
+        logger.exception("Full traceback:")
+        return ""
+
+
 async def normalize_music_volume(raw_music_url: str, offset: float = -15.0) -> str:
     """Normalize music volume using fal.ai loudnorm with specified offset"""
     try:
