@@ -27,67 +27,63 @@ GENERAL RULES
 - Split screens are forbidden except when absolutely necessary for a direct product comparison (user vs non-user). If used, keep it only one split screen in the whole spot and clearly mark it as a comparison.
 - One clear simple action per scene. Keep motions obvious and physically feasible.
 - Always repeat the image description back to the video generator so it knows exactly what it is animating.
-- **Final scene rule**: The last scene of any ad should include a clear visual cue that the video is ending, such as a subtle fade out or showing the brand/product logo, and the music should gradually fade out.
 
 OUTPUT STRUCTURE (Simple)
 {
-  scenes: [
+  "scenes": [
     {
-      scene_number: <integer>,
-      original_description: "<from Video Plan>",
-      image_prompt: {
-        base: "<clear single-sentence description for Nano Banana - what should be generated (objects, people, setting)>",
-        technical_specs: "9:16 vertical, ultra HD, professional",
-        style_modifiers: "<vibe keywords, e.g., bold, clean, vibrant>",
-        consistency_elements: "<product details that must remain identical across scenes>",
-        ai_guidance: "single focus, minimal background, no text overlay, max 3 people"
+      "scene_number": 1,
+      "original_description": "<from Video Plan>",
+      "image_prompt": {
+        "base": "<clear single-sentence description for Nano Banana - what should be generated (objects, people, setting)>",
+        "technical_specs": "9:16 vertical, ultra HD, professional",
+        "style_modifiers": "<vibe keywords, e.g., bold, clean, vibrant>",
+        "consistency_elements": "<product details that must remain identical across scenes>",
+        "ai_guidance": "single focus, minimal background, no text overlay, max 3 people"
       },
-      video_prompt: {
-        image_description: "<repeat the full image_prompt.base here exactly as a single sentence so Hailou2 knows the static frame>",
-        your_role: "<very short, simple instruction of what to do with that image — one or two sentences, imperative voice. For example, 'Make the confetti and the shoes burst into the screen, then settle in place.' or 'Make the person look tired: slight slouch, head down, slowly lift cup to mouth.' For final scenes: include brand/logo display or fade-out effect and any subtle finishing motion>",
-        duration: "<optional: duration if necessary, e.g., '6 seconds exact'>"
+      "video_prompt": {
+        "image_description": "<repeat the full image_prompt.base here exactly as a single sentence so Hailou2 knows the static frame>",
+        "your_role": "<simple instruction of what to do with that image, imperative voice. Examples: 'Make the confetti and the shoes burst into the screen, then settle in place.' or 'Make the person look tired: slight slouch, head down, slowly lift cup to mouth....'>",
+        "duration": "<optional: duration if necessary, e.g., '6 seconds exact'>"
       },
-      voiceover: {
-        text: "<short voice line from the plan — keep it concise (preferably <=15 words)>",
-        delivery: "<short delivery note, e.g., 'calm, confident' or 'energetic, urgent'>"
+      "voiceover": {
+        "text": "<short voice line from the plan — keep it concise (preferably <=15 words)>",
+        "delivery": "<short delivery note, e.g., 'calm, confident' or 'energetic, urgent'>"
       },
-      music_prompt: {
-        style: "<short genre or instrumentation, e.g., 'upbeat electronic' or 'soft piano'>",
-        mood: "<one-word mood, e.g., 'uplifting', 'energetic', 'sophisticated'>",
-        intensity: "<1-10 - how present/intense the track should be>",
-        final_scene_fade: "true if this is the final scene; gradually fade out music"
+      "music_prompt": {
+        "style": "<short genre or instrumentation, e.g., 'upbeat electronic' or 'soft piano'>",
+        "mood": "<one-word mood, e.g., 'uplifting', 'energetic', 'sophisticated'>",
+        "intensity": "<1-10 - how present/intense the track should be>"
       }
     }
   ],
-  consistency_framework: {
-    product_details: {
-      extracted: "<from plan>",
-      inferred: "<logical additions>",
-      locked: "<must remain constant across scenes>"
+  "consistency_framework": {
+    "product_details": {
+      "extracted": "<from plan>",
+      "inferred": "<logical additions>",
+      "locked": "<must remain constant across scenes>"
     },
-    visual_thread: "<single-phrase visual connector across scenes, e.g., 'neon color palette and spotlight on product'>"
+    "visual_thread": "<single-phrase visual connector across scenes, e.g., 'neon color palette and spotlight on product'>"
   },
-  quality_assurance: {
-    critical_rules: [
+  "quality_assurance": {
+    "critical_rules": [
       "No more than 3 people per scene",
       "No crowd scenes",
       "No running, jumping, fighting, dancing, acrobatics",
       "No complex choreography",
       "No impossible physics",
       "Only one split screen allowed and only for product comparison",
-      "No brand logos or text overlays in image prompts except final scene branding"
+      "No brand logos or text overlays in image prompts"
     ],
-    optimizations: [
+    "optimizations": [
       "Single focus point per scene",
       "Simple, explicit actions only",
       "Always include image_description at top of video_prompt",
       "Keep voiceover short and clear",
-      "Keep music prompt concise",
-      "Final scene should visually and audibly indicate the video is ending"
+      "Keep music prompt concise"
     ]
   }
-}
-"""
+}"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -196,5 +192,92 @@ OUTPUT STRUCTURE (Simple)
         return []
     except Exception as e:
         logger.error(f"GPT4: Failed to generate enhanced scenes: {e}")
+        logger.exception("Full traceback:")
+        return []
+
+
+async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[Dict[str, Any]]:
+    """Generate 6 WAN scenes using GPT-4 with the specific WAN system prompt"""
+    try:
+        logger.info("WAN_GPT4: Starting WAN scene generation...")
+        logger.info(f"WAN_GPT4: Prompt length: {len(prompt)} characters")
+
+        system_prompt = """You are the Backend Prompt Architect Agent for a high-velocity AI User-Generated Content (UGC) video production system. Your job is to convert a structured storyboard input (6 scenes) into backend-ready, segmented prompts for three production engines: Nano Banana (Image Generation) ElevenLabs (Voice Generation) Wan 2.5 (Video Animation) Follow this architecture strictly: GENERAL RULES Each storyboard scene must be split into three executable prompts (Nano Banana, ElevenLabs, Wan 2.5). Always extract and respect global variables (e.g., [PRODUCT_NAME], [ASPECT_RATIO], [EMOTIONAL_POSITIONING]). Keep all VOICE LINES ≤ 4 seconds. Always include required SFX and Display Text in the Wan 2.5 prompt. Maintain low-fidelity (UGC aesthetic). Output must be formatted in JSON with clear keys. OUTPUT FORMAT (Example for 1 Scene) { "scene_number": 1, "nano_banana_prompt": "EXTREME CLOSE-UP of inaccurate measuring cups demonstrating inconsistent measurements. Model (Female, 25-35, athletic-casual wear) positioned near the cups. Aesthetic: Low-Fi, 9:16, 35% Grain.", "elevenlabs_prompt": "I am SO sick of buying products that still cause the difficulty of accurately tracking macros/calories every single day! Settings: Female Voice, Confidence Tone, Fast Pace.", "wan2_5_prompt": "Animate the static image. The model's hand must quickly perform a frustrated sweeping action to clear the cups. Integrate the 'splash, frustrated sigh' SFX. Display text overlay: 'STOP DEALING WITH THE MESS!'. Aesthetic: Shaky camera, Low-Fi grain." } WORKFLOW Parse & Segment: For each scene, read the You See → Nano Banana, You Hear (VO) → ElevenLabs, and combine (You See + You Hear SFX + Display Text) → Wan 2.5. Parallel Assets: Nano Banana and ElevenLabs prompts must be self-contained and ready to execute without additional editing. Animation Layer: Wan 2.5 prompt must explicitly describe (a) the animation action, (b) required SFX, and (c) the overlay Display Text. FINAL OUTPUT REQUIREMENTS Return a JSON array of 6 scenes, each with the three prompts above. Ensure all prompts are fully executable by their respective engine. Do not include explanations, only the formatted JSON output. You must always return clean JSON following the schema."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+
+        logger.info("WAN_GPT4: Sending WAN request to GPT-4...")
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=4000,
+            temperature=0.7
+        )
+
+        logger.info("WAN_GPT4: Response received")
+        content = response.choices[0].message.content
+
+        if not content:
+            logger.error("WAN_GPT4: Empty response from GPT-4")
+            return []
+
+        logger.info(f"WAN_GPT4: Response content length: {len(content)} characters")
+        logger.info(f"WAN_GPT4: Raw response: {content[:200]}...")
+
+        # Parse JSON response
+        logger.info("WAN_GPT4: Parsing WAN JSON response...")
+
+        # Clean the response - remove any markdown formatting
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        if not content:
+            logger.error("WAN_GPT4: Content is empty after cleaning")
+            return []
+
+        # Parse the JSON response
+        parsed_response = json.loads(content)
+        
+        # Handle both array and object with scenes array
+        if isinstance(parsed_response, list):
+            wan_scenes = parsed_response
+        elif isinstance(parsed_response, dict) and "scenes" in parsed_response:
+            wan_scenes = parsed_response["scenes"]
+        else:
+            logger.error(f"WAN_GPT4: Unexpected response format: {type(parsed_response)}")
+            return []
+
+        if not isinstance(wan_scenes, list) or len(wan_scenes) != 6:
+            logger.error(
+                f"WAN_GPT4: Invalid response format - expected 6 scenes, got {len(wan_scenes) if isinstance(wan_scenes, list) else 'non-list'}")
+            return []
+
+        # Validate each scene has required fields
+        for i, scene in enumerate(wan_scenes):
+            required_fields = ["scene_number", "nano_banana_prompt", "elevenlabs_prompt", "wan2_5_prompt"]
+            for field in required_fields:
+                if field not in scene:
+                    logger.error(f"WAN_GPT4: Scene {i+1} missing required field: {field}")
+                    return []
+
+        logger.info(f"WAN_GPT4: Successfully generated {len(wan_scenes)} WAN scenes!")
+        for i, scene in enumerate(wan_scenes, 1):
+            logger.info(f"WAN_GPT4: Scene {i}: {scene.get('nano_banana_prompt', '')[:50]}...")
+
+        return wan_scenes
+
+    except json.JSONDecodeError as e:
+        logger.error(f"WAN_GPT4: JSON parsing failed: {e}")
+        logger.error(f"WAN_GPT4: Content that failed to parse: '{content}'")
+        return []
+    except Exception as e:
+        logger.error(f"WAN_GPT4: Failed to generate WAN scenes: {e}")
         logger.exception("Full traceback:")
         return []
