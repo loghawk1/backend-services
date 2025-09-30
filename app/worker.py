@@ -105,6 +105,9 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
         await update_task_progress(extracted_data.task_id, 20, "Resizing product image")
         
         resized_image_url = await resize_image_with_fal(extracted_data.image_url)
+        if not resized_image_url or resized_image_url == extracted_data.image_url:
+            logger.warning("PIPELINE: Image resize failed or returned original image, continuing with original")
+            resized_image_url = extracted_data.image_url
         logger.info(f"PIPELINE: Product image resized: {resized_image_url}")
         
         # Step 4: Generate scene images
@@ -115,8 +118,10 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
         image_prompts = [scene.get("image_prompt", "") for scene in scenes]
         scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
         
-        if not scene_image_urls or len(scene_image_urls) != 5:
-            error_msg = f"Failed to generate scene images - got {len(scene_image_urls) if scene_image_urls else 0} instead of 5"
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
+        if not scene_image_urls or len(scene_image_urls) != 5 or successful_images < 3:
+            error_msg = f"Failed to generate scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least 3 out of 5)"
             logger.error(f"PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
@@ -143,8 +148,10 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
         video_prompts = [scene.get("visual_description", "") for scene in scenes]
         video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
         
-        if not video_urls or len(video_urls) != 5:
-            error_msg = f"Failed to generate scene videos - got {len(video_urls) if video_urls else 0} instead of 5"
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_videos = len([url for url in video_urls if url]) if video_urls else 0
+        if not video_urls or len(video_urls) != 5 or successful_videos < 3:
+            error_msg = f"Failed to generate scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least 3 out of 5)"
             logger.error(f"PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
@@ -268,7 +275,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
         
-        wan_scenes = await wan_scene_generator(extracted_data.prompt, openai_client)
+        wan_scenes, music_prompt = await wan_scene_generator(extracted_data.prompt, openai_client)
         if not wan_scenes or len(wan_scenes) != 6:
             error_msg = f"Failed to generate WAN scenes with GPT-4 - got {len(wan_scenes) if wan_scenes else 0} instead of 6"
             logger.error(f"WAN_PIPELINE: {error_msg}")
@@ -276,6 +283,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             raise Exception(error_msg)
         
         logger.info(f"WAN_PIPELINE: Generated {len(wan_scenes)} WAN scenes successfully")
+        logger.info(f"WAN_PIPELINE: Music prompt: {music_prompt[:100] if music_prompt else 'None'}...")
         
         # Debug: Log the generated WAN scenes to see what GPT-4 created
         logger.info("WAN_PIPELINE: === GPT-4 Generated WAN Scenes ===")
@@ -312,8 +320,10 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         nano_banana_prompts = [scene.get("nano_banana_prompt", "") for scene in wan_scenes]
         scene_image_urls = await generate_wan_scene_images_with_fal(nano_banana_prompts, resized_image_url)
         
-        if not scene_image_urls or len(scene_image_urls) != 6:
-            error_msg = f"Failed to generate WAN scene images - got {len(scene_image_urls) if scene_image_urls else 0} instead of 6"
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
+        if not scene_image_urls or len(scene_image_urls) != 6 or successful_images < 4:
+            error_msg = f"Failed to generate WAN scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least 4 out of 6)"
             logger.error(f"WAN_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
@@ -337,8 +347,14 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         if voiceover_urls:
             logger.info("WAN_PIPELINE: Updating database with voiceover URLs...")
             await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
-        else:
-            logger.error("WAN_PIPELINE: No voiceover URLs generated - voiceover generation failed!")
+        
+        # Check if enough voiceovers succeeded (allow some failures but not total failure)
+        successful_voiceovers = len([url for url in voiceover_urls if url]) if voiceover_urls else 0
+        if successful_voiceovers < 3:  # Need at least 3 out of 6 voiceovers
+            error_msg = f"WAN voiceover generation failed - only {successful_voiceovers} out of 6 voiceovers generated successfully (need at least 3)"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
+            raise Exception(error_msg)
         
         # Step 6: Generate WAN videos from scene images
         logger.info("WAN_PIPELINE: Step 6 - Generating WAN videos from scene images...")
@@ -348,8 +364,10 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         wan2_5_prompts = [scene.get("wan2_5_prompt", "") for scene in wan_scenes]
         video_urls = await generate_wan_videos_with_fal(scene_image_urls, wan2_5_prompts)
         
-        if not video_urls or len(video_urls) != 6:
-            error_msg = f"Failed to generate WAN scene videos - got {len(video_urls) if video_urls else 0} instead of 6"
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_videos = len([url for url in video_urls if url]) if video_urls else 0
+        if not video_urls or len(video_urls) != 6 or successful_videos < 4:
+            error_msg = f"Failed to generate WAN scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least 4 out of 6)"
             logger.error(f"WAN_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
@@ -357,15 +375,34 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         # Update database with WAN scene video URLs
         await update_scenes_with_video_urls(video_urls, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 7: Compose final WAN video with audio
-        logger.info("WAN_PIPELINE: Step 7 - Composing final WAN video with audio...")
+        # Step 7: Generate background music from music_prompt
+        logger.info("WAN_PIPELINE: Step 7 - Generating background music from music_prompt...")
+        await update_task_progress(extracted_data.task_id, 65, "Generating background music")
+        
+        normalized_music_url = ""
+        if music_prompt:
+            raw_music_url = await generate_wan_background_music_with_fal(music_prompt)
+            
+            if raw_music_url:
+                # Normalize music volume
+                logger.info("WAN_PIPELINE: Normalizing background music volume...")
+                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
+                
+                # Store music in database
+                await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+        else:
+            logger.warning("WAN_PIPELINE: No music prompt provided, skipping music generation")
+        
+        # Step 8: Compose final WAN video using JSON2Video
+        logger.info("WAN_PIPELINE: Step 8 - Composing final WAN video using JSON2Video...")
         await update_task_progress(extracted_data.task_id, 80, "Composing final WAN video")
         
         logger.info(f"WAN_PIPELINE: Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs to composition")
         logger.info(f"WAN_PIPELINE: Video URLs: {video_urls}")
         logger.info(f"WAN_PIPELINE: Voiceover URLs: {voiceover_urls}")
+        logger.info(f"WAN_PIPELINE: Background music URL: {normalized_music_url}")
         
-        final_video_url = await compose_wan_final_video_with_audio(video_urls, voiceover_urls)
+        final_video_url = await compose_wan_video_with_json2video(video_urls, voiceover_urls, normalized_music_url)
         
         if not final_video_url:
             error_msg = "Failed to compose final WAN video - no video URL returned"
@@ -373,19 +410,13 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
             raise Exception(error_msg)
         
-        # Step 8: Add captions to final WAN video
-        logger.info("WAN_PIPELINE: Step 8 - Adding captions to final WAN video...")
-        await update_task_progress(extracted_data.task_id, 95, "Adding captions to final WAN video")
-        
-        captioned_video_url = await add_captions_to_video(final_video_url)
-        
-        # Step 9: Send final WAN video to frontend
+        # Step 9: Send final WAN video to frontend (skip captions since JSON2Video handles them)
         logger.info("WAN_PIPELINE: Step 9 - Sending final WAN video to frontend...")
         await update_task_progress(extracted_data.task_id, 100, "WAN processing completed successfully")
         
         logger.info("WAN_PIPELINE: Sending final WAN video to frontend...")
         callback_success = await send_video_callback(
-            captioned_video_url,
+            final_video_url,  # JSON2Video already handles captions
             extracted_data.video_id,
             extracted_data.chat_id,
             extracted_data.user_id,
@@ -400,7 +431,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         return {
             "status": "completed",
-            "final_video_url": captioned_video_url,
+            "final_video_url": final_video_url,
             "callback_sent": callback_success
         }
         
@@ -543,8 +574,10 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         video_prompts = [scene.get("visual_description", "") for scene in revised_scenes]
         video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
         
-        if not video_urls or len(video_urls) != 5:
-            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} instead of 5"
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_videos = len([url for url in video_urls if url]) if video_urls else 0
+        if not video_urls or len(video_urls) != 5 or successful_videos < 3:
+            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least 3 out of 5)"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=True)
             raise Exception(error_msg)
