@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     callback_auth_token: str = ""
     webhook_secret: str = ""
 
+    # Base44 App Configuration
+    base44_app_id: str = ""
+
 # Singleton instance of settings
 _settings: Settings = None
 
