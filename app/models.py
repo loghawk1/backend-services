@@ -48,6 +48,33 @@ class ProcessingStats(BaseModel):
     failed_tasks: int = 0
     average_processing_time: float = 0.0
 
+class WanScene(BaseModel):
+    """Model for WAN scene structure from GPT-4"""
+    scene_number: int = Field(..., description="Scene number (1-6)")
+    nano_banana_prompt: str = Field(..., description="Image generation prompt for Nano Banana")
+    elevenlabs_prompt: str = Field(..., description="Text-to-speech prompt for ElevenLabs")
+    wan2_5_prompt: str = Field(..., description="Video animation prompt for WAN 2.5")
+
+class ExtractedWanData(BaseModel):
+    """Model for extracted WAN webhook fields"""
+    prompt: str = Field(..., description="The storyboard prompt content from the webhook body")
+    video_id: str = Field(..., description="Unique video identifier")
+    chat_id: str = Field(..., description="Chat session identifier")
+    user_id: str = Field(..., description="User identifier")
+    user_email: str = Field(..., description="User email address")
+    user_name: str = Field(..., description="User name")
+    model: str = Field(default="wan", description="Model type (should be 'wan')")
+    request_timestamp: str = Field(..., description="Original request timestamp")
+    source: str = Field(..., description="Source of the request")
+    version: str = Field(..., description="API version")
+    idempotency_key: str = Field(..., description="Idempotency key for duplicate detection")
+    callback_url: str = Field(..., description="URL to callback when processing is complete")
+    webhook_url: str = Field(..., description="Original webhook URL")
+    execution_mode: str = Field(..., description="Execution mode (production/development)")
+    
+    # Additional fields for processing
+    task_id: Optional[str] = Field(None, description="Generated task ID")
+    processing_status: str = Field(default="queued", description="Current processing status")
 class RevisionWebhookData(BaseModel):
     """Model for incoming revision webhook data"""
     headers: Dict[str, str]
