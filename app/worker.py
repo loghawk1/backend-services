@@ -44,6 +44,14 @@ from .services.single_asset_generation import (
     generate_single_scene_image_with_fal,
     generate_single_video_with_fal
 )
+from .services.wan_generation import (
+    generate_wan_scene_images_with_fal,
+    generate_wan_voiceovers_with_fal,
+    generate_wan_videos_with_fal
+)
+from .services.scene_generation import wan_scene_generator
+from .services.database_operations import store_wan_scenes_in_supabase
+from .services.final_composition import compose_wan_final_video_with_audio
 
 # Load environment variables
 load_dotenv()
@@ -881,11 +889,252 @@ async def process_video_revision(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
         if task_id:
             await update_task_progress(task_id, 0, f"Revision processing failed: {str(e)}")
         return {"status": "failed", "error": str(e)}
+
+
+async def process_wan_request(ctx, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Main WAN video processing pipeline"""
+    task_id = None
+    callback_url = None
+    video_id = ""
+    chat_id = ""
+    user_id = ""
+    
+    try:
+        logger.info("WAN_PIPELINE: Starting WAN video processing pipeline...")
+
+        # Extract data
+        task_id = data.get("task_id")
+        video_id = data.get("video_id")
+        chat_id = data.get("chat_id")
+        user_id = data.get("user_id")
+        prompt = data.get("prompt")
+        callback_url = data.get("callback_url")
+
+        logger.info("WAN_PIPELINE: Processing Details:")
+        logger.info(f"WAN_PIPELINE: Task ID: {task_id}")
+        logger.info(f"WAN_PIPELINE: Video ID: {video_id}")
+        logger.info(f"WAN_PIPELINE: User ID: {user_id}")
+        logger.info(f"WAN_PIPELINE: Prompt: {prompt[:100]}...")
+
+        try:
+            # 1. Generate 6 WAN scenes with GPT-4
+            await update_task_progress(task_id, 5, "Generating WAN scenes with GPT-4")
+            wan_scenes = await wan_scene_generator(prompt, openai_client)
+
+            if not wan_scenes or len(wan_scenes) != 6:
+                raise ValueError("Failed to generate 6 WAN scenes")
+                
+        except Exception as e:
+            error_msg = f"WAN scene generation failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 2. Store WAN scenes in database
+            await update_task_progress(task_id, 10, "Storing WAN scenes in database")
+            scenes_stored = await store_wan_scenes_in_supabase(wan_scenes, video_id, user_id)
+            
+            if not scenes_stored:
+                raise ValueError("Failed to store WAN scenes in database")
+                
+        except Exception as e:
+            error_msg = f"WAN database storage failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 3. Generate scene images concurrently
+            await update_task_progress(task_id, 20, "Generating scene images with Nano Banana")
+
+            # Extract nano_banana_prompts from WAN scenes
+            nano_banana_prompts = [scene.get("nano_banana_prompt", "") for scene in wan_scenes]
+            scene_image_urls = await generate_wan_scene_images_with_fal(nano_banana_prompts)
+
+            if not scene_image_urls or len([url for url in scene_image_urls if url]) == 0:
+                raise ValueError("Failed to generate scene images")
+                
+        except Exception as e:
+            error_msg = f"WAN scene image generation failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 4. Generate voiceovers concurrently
+            await update_task_progress(task_id, 35, "Generating voiceovers with MiniMax Speech")
+
+            # Extract elevenlabs_prompts from WAN scenes
+            elevenlabs_prompts = [scene.get("elevenlabs_prompt", "") for scene in wan_scenes]
+            voiceover_urls = await generate_wan_voiceovers_with_fal(elevenlabs_prompts)
+
+            # Note: Voiceover generation is allowed to partially fail
+                
+        except Exception as e:
+            error_msg = f"WAN voiceover generation failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 5. Update scenes with image URLs
+            await update_task_progress(task_id, 50, "Storing scene image URLs")
+            image_urls_updated = await update_scenes_with_image_urls(scene_image_urls, video_id, user_id)
+            
+            if not image_urls_updated:
+                raise ValueError("Failed to store scene image URLs")
+                
+        except Exception as e:
+            error_msg = f"WAN scene image URL storage failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 6. Update scenes with voiceover URLs
+            await update_task_progress(task_id, 55, "Storing voiceover URLs")
+            if voiceover_urls:
+                voiceover_urls_updated = await update_scenes_with_voiceover_urls(voiceover_urls, video_id, user_id)
+                if not voiceover_urls_updated:
+                    logger.warning("WAN_PIPELINE: Failed to store voiceover URLs, but continuing")
+                    
+        except Exception as e:
+            error_msg = f"WAN voiceover URL storage failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 7. Generate videos from scene images concurrently
+            await update_task_progress(task_id, 65, "Generating videos with WAN 2.5")
+            
+            # Extract wan2_5_prompts from WAN scenes
+            wan2_5_prompts = [scene.get("wan2_5_prompt", "") for scene in wan_scenes]
+            video_urls = await generate_wan_videos_with_fal(scene_image_urls, wan2_5_prompts)
+
+            if not video_urls or len([url for url in video_urls if url]) == 0:
+                raise ValueError("Failed to generate videos")
+                
+        except Exception as e:
+            error_msg = f"WAN video generation failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 8. Update scenes with video URLs
+            await update_task_progress(task_id, 80, "Storing scene video URLs")
+            video_urls_updated = await update_scenes_with_video_urls(video_urls, video_id, user_id)
+            
+            if not video_urls_updated:
+                raise ValueError("Failed to store scene video URLs")
+                
+        except Exception as e:
+            error_msg = f"WAN scene video URL storage failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 9. Compose final video with all audio tracks
+            await update_task_progress(task_id, 90, "Composing final WAN video with audio")
+            final_video_url = await compose_wan_final_video_with_audio(video_urls, voiceover_urls)
+            
+            if not final_video_url:
+                raise ValueError("Failed to compose final WAN video with audio")
+                
+        except Exception as e:
+            error_msg = f"WAN final audio composition failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        try:
+            # 10. Add captions to final video
+            await update_task_progress(task_id, 95, "Adding captions to final WAN video")
+            captioned_video_url = await add_captions_to_video(final_video_url)
+            
+            if not captioned_video_url:
+                raise ValueError("Failed to add captions to WAN video")
+                
+        except Exception as e:
+            error_msg = f"WAN caption generation failed: {str(e)}"
+            logger.error(f"WAN_PIPELINE: {error_msg}")
+            await update_task_progress(task_id, 0, error_msg)
+            await send_error_callback(error_msg, video_id, chat_id, user_id, callback_url, is_revision=False)
+            return {"status": "failed", "error": error_msg}
+
+        # 11. Final completion
+        await update_task_progress(task_id, 100, "WAN processing completed successfully")
+
+        # 12. Send final video to frontend
+        logger.info("WAN_PIPELINE: Sending final WAN video to frontend...")
+        callback_success = await send_video_callback(
+            final_video_url=captioned_video_url,
+            video_id=video_id,
+            chat_id=chat_id,
+            user_id=user_id,
+            callback_url=callback_url,
+            is_revision=False  # WAN video processing
+        )
+        
+        if callback_success:
+            logger.info("WAN_PIPELINE: Frontend callback sent successfully!")
+        else:
+            logger.warning("WAN_PIPELINE: Frontend callback failed, but processing completed")
+
+        logger.info("WAN_PIPELINE: WAN video processing completed successfully!")
+
+        return {
+            "status": "completed",
+            "video_id": video_id,
+            "model": "wan",
+            "scene_image_urls": scene_image_urls,
+            "video_urls": video_urls,
+            "voiceover_urls": voiceover_urls,
+            "final_video_url": final_video_url,
+            "captioned_video_url": captioned_video_url,
+            "scenes_count": len(wan_scenes),
+            "callback_sent": callback_success
+        }
+    except Exception as e:
+        logger.error(f"WAN_PIPELINE: Failed to process WAN video request: {e}")
+        logger.exception("Full traceback:")
+        
+        # Send error callback to frontend
+        try:
+            await send_error_callback(
+                error_message=str(e),
+                video_id=video_id,
+                chat_id=chat_id,
+                user_id=user_id,
+                callback_url=callback_url,
+                is_revision=False
+            )
+            logger.info("WAN_PIPELINE: Error callback sent to frontend")
+        except Exception as callback_error:
+            logger.error(f"WAN_PIPELINE: Failed to send error callback: {callback_error}")
+        
+        if task_id:
+            await update_task_progress(task_id, 0, f"WAN processing failed: {str(e)}")
+        return {"status": "failed", "error": str(e)}
+
+
 # ARQ Worker Configuration
 class WorkerSettings:
     # Use REDIS_URL for Railway compatibility - ensure it's loaded properly
     redis_settings = RedisSettings.from_dsn(os.getenv("REDIS_URL", settings.redis_url))
-    functions = [process_video_request, process_video_revision]
+    functions = [process_video_request, process_video_revision, process_wan_request]
     max_jobs = 10  # Increased from 100 to 10 for better resource management per replica
     job_timeout = 1800  # 30 minutes (1800 seconds) - Fixed timeout for long-running tasks
     
