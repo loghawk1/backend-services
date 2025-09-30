@@ -85,6 +85,13 @@ async def send_video_callback(
         else:
             logger.warning("CALLBACK: No webhook secret configured")
         
+        # Add Base44-App-Id header if configured
+        if settings.base44_app_id:
+            headers["Base44-App-Id"] = settings.base44_app_id
+            logger.info("CALLBACK: Added Base44-App-Id header")
+        else:
+            logger.warning("CALLBACK: No Base44 App ID configured")
+        
         # Send POST request with JSON payload
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -185,6 +192,13 @@ async def send_error_callback(
             logger.info("CALLBACK: Added X-Webhook-Secret header to error callback")
         else:
             logger.warning("CALLBACK: No webhook secret configured for error callback")
+        
+        # Add Base44-App-Id header if configured
+        if settings.base44_app_id:
+            headers["Base44-App-Id"] = settings.base44_app_id
+            logger.info("CALLBACK: Added Base44-App-Id header to error callback")
+        else:
+            logger.warning("CALLBACK: No Base44 App ID configured for error callback")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
