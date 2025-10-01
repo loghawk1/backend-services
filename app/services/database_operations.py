@@ -242,7 +242,7 @@ async def update_scenes_with_voiceover_urls(voiceover_urls: List[str], video_id:
 
 
 async def get_scenes_for_video(video_id: str, user_id: str) -> List[Dict]:
-    """Retrieve all 5 scenes for a specific video from the database"""
+    """Retrieve all scenes for a specific video from the database (5 for regular, 6 for WAN)"""
     try:
         logger.info(f"DATABASE: Retrieving scenes for video: {video_id}, user: {user_id}")
 
@@ -255,8 +255,10 @@ async def get_scenes_for_video(video_id: str, user_id: str) -> List[Dict]:
             logger.error(f"DATABASE: No scenes found for video: {video_id}")
             return []
 
-        if len(result.data) != 5:
-            logger.warning(f"DATABASE: Expected 5 scenes, found {len(result.data)} for video: {video_id}")
+        # Support both regular (5 scenes) and WAN (6 scenes) workflows
+        expected_counts = [5, 6]
+        if len(result.data) not in expected_counts:
+            logger.warning(f"DATABASE: Expected 5 or 6 scenes, found {len(result.data)} for video: {video_id}")
 
         logger.info(f"DATABASE: Successfully retrieved {len(result.data)} scenes for video: {video_id}")
         for scene in result.data:
@@ -270,6 +272,35 @@ async def get_scenes_for_video(video_id: str, user_id: str) -> List[Dict]:
         return []
 
 
+async def detect_video_workflow_type(video_id: str, user_id: str) -> str:
+    """Detect if a video uses regular (5 scenes) or WAN (6 scenes) workflow"""
+    try:
+        logger.info(f"DATABASE: Detecting workflow type for video: {video_id}")
+        
+        supabase = get_supabase_client()
+        
+        # Count scenes for this video
+        result = supabase.table("scenes").select("scene_number").eq("video_id", video_id).eq("user_id", user_id).execute()
+        
+        if not result.data:
+            logger.warning(f"DATABASE: No scenes found for video: {video_id}")
+            return "regular"  # Default to regular
+        
+        scene_count = len(result.data)
+        
+        if scene_count == 6:
+            logger.info(f"DATABASE: Video {video_id} detected as WAN workflow (6 scenes)")
+            return "wan"
+        elif scene_count == 5:
+            logger.info(f"DATABASE: Video {video_id} detected as regular workflow (5 scenes)")
+            return "regular"
+        else:
+            logger.warning(f"DATABASE: Video {video_id} has unexpected scene count: {scene_count}, defaulting to regular")
+            return "regular"
+            
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to detect workflow type for video {video_id}: {e}")
+        return "regular"  # Default to regular on error
 async def get_music_for_video(video_id: str, user_id: str) -> Dict:
     """Retrieve background music record for a specific video from the database"""
     try:
