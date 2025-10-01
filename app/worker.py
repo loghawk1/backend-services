@@ -457,13 +457,19 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         logger.info(f"WAN_PIPELINE: Final video URL: {final_video_url}")
         
-        # Step 10: Send final WAN video to frontend (skip captions since JSON2Video handles them)
-        logger.info("WAN_PIPELINE: Step 10 - Sending final WAN video to frontend...")
+        # Step 10: Add captions to final WAN video
+        logger.info("WAN_PIPELINE: Step 10 - Adding captions to final WAN video...")
+        await update_task_progress(extracted_data.task_id, 90, "Adding captions to final WAN video")
+        
+        captioned_video_url = await add_captions_to_video(final_video_url)
+        
+        # Step 11: Send final WAN video to frontend
+        logger.info("WAN_PIPELINE: Step 11 - Sending final WAN video to frontend...")
         await update_task_progress(extracted_data.task_id, 100, "WAN processing completed successfully")
         
         logger.info("WAN_PIPELINE: Sending final WAN video to frontend...")
         callback_success = await send_video_callback(
-            final_video_url,  # JSON2Video already handles captions
+            captioned_video_url,
             extracted_data.video_id,
             extracted_data.chat_id,
             extracted_data.user_id,
@@ -477,7 +483,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         return {
             "status": "completed",
-            "final_video_url": final_video_url,
+            "final_video_url": captioned_video_url,
             "callback_sent": callback_success
         }
         
