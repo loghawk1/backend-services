@@ -202,7 +202,24 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
         logger.info("WAN_GPT4: Starting WAN scene generation...")
         logger.info(f"WAN_GPT4: Prompt length: {len(prompt)} characters")
 
-        system_prompt = """You are the Backend Prompt Architect Agent for a high-velocity AI User-Generated Content (UGC) video production system. Your job is to convert a structured storyboard input (6 scenes) into backend-ready, segmented prompts for three production engines: Nano Banana (Image Generation) ElevenLabs (Voice Generation) Wan 2.5 (Video Animation) Follow this architecture strictly: GENERAL RULES Each storyboard scene must be split into three executable prompts (Nano Banana, ElevenLabs, Wan 2.5). Always extract and respect global variables (e.g., [PRODUCT_NAME], [ASPECT_RATIO], [EMOTIONAL_POSITIONING]). Keep all VOICE LINES ≤ 4 seconds. Always include required SFX and Display Text in the Wan 2.5 prompt. Maintain low-fidelity (UGC aesthetic). Output must be formatted in JSON with clear keys. OUTPUT FORMAT (Example for 1 Scene) { "scene_number": 1, "nano_banana_prompt": "EXTREME CLOSE-UP of inaccurate measuring cups demonstrating inconsistent measurements. Model (Female, 25-35, athletic-casual wear) positioned near the cups. Aesthetic: Low-Fi, 9:16, 35% Grain.", "elevenlabs_prompt": "I am SO sick of buying products that still cause the difficulty of accurately tracking macros/calories every single day!", "wan2_5_prompt": "Animate the static image. The model's hand must quickly perform a frustrated sweeping action to clear the cups. Integrate the 'splash, frustrated sigh' SFX. Display text overlay: 'STOP DEALING WITH THE MESS!'. Aesthetic: Shaky camera, Low-Fi grain." } WORKFLOW Parse & Segment: For each scene, read the You See → Nano Banana, You Hear (VO) → ElevenLabs, and combine (You See + You Hear SFX + Display Text) → Wan 2.5. Parallel Assets: Nano Banana and ElevenLabs prompts must be self-contained and ready to execute without additional editing. Animation Layer: Wan 2.5 prompt must explicitly describe (a) the animation action, (b) required SFX, and (c) the overlay Display Text. MUSIC GENERATION: Based on the overall storyboard, generate a cohesive background music prompt that complements the video's mood and pacing. The music should enhance the UGC aesthetic without overpowering the voiceovers. FINAL OUTPUT REQUIREMENTS Return a JSON object with the following structure: { "scenes": [ // Array of 6 scenes, each with the three prompts above ], "music_prompt": "A descriptive prompt for background music generation that matches the video's tone, energy, and UGC aesthetic" } Ensure all prompts are fully executable by their respective engines. Do not include explanations, only the formatted JSON output. You must always return clean JSON following the schema."""
+        system_prompt = """You are the Backend Prompt Architect Agent for a high-velocity AI User-Generated Content (UGC) video production system. Your job is to convert a structured storyboard input (6 scenes) into backend-ready, segmented prompts for three production engines: Nano Banana (Image Generation) ElevenLabs (Voice Generation) Wan 2.5 (Video Animation) Follow this architecture strictly: GENERAL RULES Each storyboard scene must be split into three executable prompts (Nano Banana, ElevenLabs, Wan 2.5). Always extract and respect global variables (e.g., [PRODUCT_NAME], [ASPECT_RATIO], [EMOTIONAL_POSITIONING]). Keep all VOICE LINES ≤ 4 seconds. Always include required SFX and Display Text in the Wan 2.5 prompt. Maintain low-fidelity (UGC aesthetic). Output must be formatted in JSON with clear keys. OUTPUT FORMAT (Example for 1 Scene) { "scene_number": 1, "nano_banana_prompt": "EXTREME CLOSE-UP of inaccurate measuring cups demonstrating inconsistent measurements. Model (Female, 25-35, athletic-casual wear) positioned near the cups. Aesthetic: Low-Fi, 9:16, 35% Grain.", "elevenlabs_prompt": "I am SO sick of buying products that still cause the difficulty of accurately tracking macros/calories every single day!", "wan2_5_prompt": "Animate the static image. The model's hand must quickly perform a frustrated sweeping action to clear the cups. Integrate the 'splash, frustrated sigh' SFX. Display text overlay: 'STOP DEALING WITH THE MESS!'. Aesthetic: Shaky camera, Low-Fi grain." } WORKFLOW Parse & Segment: For each scene, read the You See → Nano Banana, You Hear (VO) → ElevenLabs, and combine (You See + You Hear SFX + Display Text) → Wan 2.5. Parallel Assets: Nano Banana and ElevenLabs prompts must be self-contained and ready to execute without additional editing. Animation Layer: Wan 2.5 prompt must explicitly describe (a) the animation action, (b) required SFX, and (c) the overlay Display Text. MUSIC GENERATION REQUIREMENTS: Create a SIMPLE and CONCISE music prompt that will be accepted by AI music generation models. The prompt MUST be under 50 characters and follow these guidelines:
+
+REQUIRED FORMAT for music_prompt:
+- Use basic genre + mood + instrumentation only
+- NO complex descriptions or lengthy explanations
+- Keep it under 50 characters total
+
+GOOD EXAMPLES:
+- "Lo-fi hip hop with calm steady beat"
+- "Light upbeat music with soft percussion"
+- "Smooth chill instrumental steady rhythm"
+- "Upbeat electronic with gentle synths"
+- "Soft acoustic with light guitar"
+
+BAD EXAMPLES (TOO COMPLEX):
+- "Create a light, upbeat lo-fi background track with soft percussion and gentle chimes. Keep the energy fresh and youthful, matching a morning skincare routine vibe. Ensure the music supports but never overpowers the short voiceovers, maintaining a natural UGC aesthetic."
+
+FINAL OUTPUT REQUIREMENTS Return a JSON object with the following structure: { "scenes": [ // Array of 6 scenes, each with the three prompts above ], "music_prompt": "Simple music description under 50 characters" } Ensure all prompts are fully executable by their respective engines. Do not include explanations, only the formatted JSON output. You must always return clean JSON following the schema."""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -222,7 +239,7 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 
         if not content:
             logger.error("WAN_GPT4: Empty response from GPT-4")
-            return []
+            return [], ""
 
         logger.info(f"WAN_GPT4: Response content length: {len(content)} characters")
         logger.info(f"WAN_GPT4: Raw response preview: {content[:200]}...")
@@ -286,7 +303,7 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
                 logger.warning("WAN_GPT4: No 'music_prompt' key found in dictionary response")
                 logger.warning(f"WAN_GPT4: Available keys: {list(parsed_response.keys())}")
                 # Set a default music prompt if none provided
-                music_prompt = "Create a light, upbeat lo-fi background track with soft percussion and gentle chimes. Keep the energy fresh and youthful, matching a morning skincare routine vibe. Ensure the music supports but never overpowers the short voiceovers, maintaining a natural UGC aesthetic."
+                music_prompt = "Lo-fi hip hop with calm steady beat"
                 logger.info("WAN_GPT4: Using default music prompt since none was extracted")
         else:
             logger.error(f"WAN_GPT4: Unexpected response format: {type(parsed_response)}")
