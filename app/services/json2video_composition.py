@@ -31,12 +31,11 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
             logger.error("JSON2VIDEO: JSON2VIDEO_API_KEY not found in environment variables")
             return None
         
-        # Filter out empty URLs
+        # Keep original arrays to maintain scene index correspondence
         valid_scene_clips = [url for url in scene_clip_urls if url]
-        valid_voiceovers = [url for url in voiceover_urls if url]
         
         logger.info(f"JSON2VIDEO: Valid scene clips: {len(valid_scene_clips)} out of {len(scene_clip_urls)}")
-        logger.info(f"JSON2VIDEO: Valid voiceovers: {len(valid_voiceovers)} out of {len(voiceover_urls)}")
+        logger.info(f"JSON2VIDEO: Processing {len(voiceover_urls)} voiceover URLs (some may be empty)")
         
         if len(valid_scene_clips) < 4:  # Need at least 4 scenes
             logger.error(f"JSON2VIDEO: Not enough valid scene clips: {len(valid_scene_clips)} (need at least 4)")
@@ -61,16 +60,18 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
                 logger.info(f"JSON2VIDEO: Added video for scene {i+1}: {valid_scene_clips[i]}")
             
             # Add voiceover element if available
-            if i < len(valid_voiceovers) and valid_voiceovers[i]:
+            if i < len(voiceover_urls) and voiceover_urls[i]:
                 voiceover_element = {
                     "type": "audio",
-                    "src": valid_voiceovers[i],
+                    "src": voiceover_urls[i],
                     "start": 0,
                     "duration": 5,  # 5 seconds per voiceover
                     "volume": 2  # High volume for voiceover
                 }
                 scene_elements.append(voiceover_element)
-                logger.info(f"JSON2VIDEO: Added voiceover for scene {i+1}: {valid_voiceovers[i]}")
+                logger.info(f"JSON2VIDEO: Added voiceover for scene {i+1}: {voiceover_urls[i]}")
+            else:
+                logger.warning(f"JSON2VIDEO: No voiceover available for scene {i+1} - skipping audio element")
             
             if scene_elements:
                 scenes.append({"elements": scene_elements})
@@ -172,7 +173,7 @@ async def compose_final_video_with_music_json2video(
                 "src": composed_video_url,
                 "start": 0,
                 "duration": 30,  # 30 seconds total (6 scenes × 5 seconds)
-                "volume": 0.5,  # Full volume for composed video (already has videos + voiceovers)
+                "volume": 1,  # Full volume for composed video (already has videos + voiceovers)
                 "resize": "cover"
             },
             {
@@ -180,7 +181,7 @@ async def compose_final_video_with_music_json2video(
                 "src": music_url,
                 "start": 0,
                 "duration": 30,  # 30 seconds background music
-                "volume": 1  # Low volume for background music
+                "volume": 0.2  # Low volume for background music
             }
         ]
         
