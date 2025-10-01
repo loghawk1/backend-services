@@ -82,7 +82,7 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
         json_data = {
             "resolution": "custom", # 9:16 aspect ratio
             "width": 1080,
-            "height": 1920,
+            "height": 1920,  # 9:16 aspect ratio
             "scenes": scenes
         }
         
@@ -123,7 +123,7 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
         logger.info(f"JSON2VIDEO: Step 1 composition started with project ID: {project_id}")
         
         # Poll for completion
-        composed_video_url = await check_json2video_status(project_id, max_wait_time=600)  # 10 minutes
+        composed_video_url = await check_json2video_status(project_id, max_wait_time=480)  # 8 minutes (leave buffer for ARQ timeout)
         
         if composed_video_url:
             logger.info("JSON2VIDEO: Step 1 composition (videos + voiceovers) completed successfully!")
@@ -229,7 +229,7 @@ async def compose_final_video_with_music_json2video(
         logger.info(f"JSON2VIDEO: Step 2 composition started with project ID: {project_id}")
         
         # Poll for completion
-        final_video_url = await check_json2video_status(project_id, max_wait_time=600)  # 10 minutes
+        final_video_url = await check_json2video_status(project_id, max_wait_time=300)  # 5 minutes (leave buffer for ARQ timeout)
         
         if final_video_url:
             logger.info("JSON2VIDEO: Step 2 composition (composed video + music) completed successfully!")
