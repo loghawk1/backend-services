@@ -381,7 +381,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         await update_task_progress(extracted_data.task_id, 65, "Generating background music")
         
         normalized_music_url = ""
-        if music_prompt:
+        if music_prompt and music_prompt.strip():
             logger.info(f"WAN_PIPELINE: Using music prompt: {music_prompt}")
             from .services.music_generation import generate_wan_background_music_with_fal
             raw_music_url = await generate_wan_background_music_with_fal(music_prompt)
@@ -397,8 +397,25 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             else:
                 logger.error("WAN_PIPELINE: Failed to generate background music from Lyria")
         else:
-            logger.warning("WAN_PIPELINE: No music prompt provided - this indicates GPT-4 didn't return music_prompt")
-            logger.warning("WAN_PIPELINE: Skipping music generation")
+            logger.warning("WAN_PIPELINE: No valid music prompt provided")
+            logger.info("WAN_PIPELINE: Generating music with default prompt...")
+            
+            # Use default music prompt if none provided
+            default_music_prompt = "Create a light, upbeat lo-fi background track with soft percussion and gentle chimes. Keep the energy fresh and youthful, matching a morning skincare routine vibe. Ensure the music supports but never overpowers the short voiceovers, maintaining a natural UGC aesthetic."
+            
+            from .services.music_generation import generate_wan_background_music_with_fal
+            raw_music_url = await generate_wan_background_music_with_fal(default_music_prompt)
+            
+            if raw_music_url:
+                # Normalize music volume
+                logger.info("WAN_PIPELINE: Normalizing background music volume...")
+                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
+                
+                # Store music in database
+                await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+                logger.info(f"WAN_PIPELINE: Background music generated with default prompt and stored: {normalized_music_url}")
+            else:
+                logger.error("WAN_PIPELINE: Failed to generate background music even with default prompt")
         
         # Step 8: Compose final WAN video using JSON2Video
         logger.info("WAN_PIPELINE: Step 8 - Composing WAN videos + voiceovers (JSON2Video Step 1)...")
