@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # Task Configuration
     max_concurrent_tasks: int = 10  # Reduced per replica, but with 3 replicas = 30 total
-    task_timeout: int = 900  # Increase to 15 minutes for music generation
+    task_timeout: int = 1200  # Increase to 20 minutes to allow proper error handling
 
     # External API Keys
     fal_key: str = ""
