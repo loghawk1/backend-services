@@ -239,8 +239,7 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
             str(e),
             extracted_data.video_id,
             extracted_data.chat_id,
-            extracted_data.user_id,
-            is_revision=False
+            extracted_data.user_id
         )
         
         return {
@@ -270,14 +269,14 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         if not openai_client:
             error_msg = "OpenAI client not configured - missing OPENAI_API_KEY"
             logger.error(f"WAN_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
         
         wan_scenes, music_prompt = await wan_scene_generator(extracted_data.prompt, openai_client)
         if not wan_scenes or len(wan_scenes) != 6:
             error_msg = f"Failed to generate WAN scenes with GPT-4 - got {len(wan_scenes) if wan_scenes else 0} instead of 6"
             logger.error(f"WAN_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
         
         logger.info(f"WAN_PIPELINE: Generated {len(wan_scenes)} WAN scenes successfully")
@@ -304,7 +303,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         if not scenes_stored:
             error_msg = "Failed to store WAN scenes in database"
             logger.error(f"WAN_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=False)
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
         
         # Step 3: Resize the initial product image
@@ -384,6 +383,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         normalized_music_url = ""
         if music_prompt:
             logger.info(f"WAN_PIPELINE: Using music prompt: {music_prompt}")
+            from .services.music_generation import generate_wan_background_music_with_fal
             raw_music_url = await generate_wan_background_music_with_fal(music_prompt)
             
             if raw_music_url:
@@ -473,8 +473,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             str(e),
             extracted_data.video_id,
             extracted_data.chat_id,
-            extracted_data.user_id,
-            is_revision=False
+            extracted_data.user_id
         )
         
         return {
@@ -505,11 +504,235 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         if not openai_client:
             error_msg = "OpenAI client not configured - missing OPENAI_API_KEY"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.callback_url, is_revision=True)
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
         
         original_scenes = await get_scenes_for_video(extracted_data.parent_video_id, extracted_data.user_id)
         if not original_scenes or len(original_scenes) != 5:
             error_msg = f"Failed to retrieve original scenes - got {len(original_scenes) if original_scenes else 0} instead of 5"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, extracted_data.
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        logger.info(f"REVISION_PIPELINE: Retrieved {len(original_scenes)} original scenes")
+        
+        # Step 2: Generate revised scenes using GPT-4
+        logger.info("REVISION_PIPELINE: Step 2 - Generating revised scenes with GPT-4...")
+        await update_task_progress(extracted_data.task_id, 20, "Generating revised scenes with GPT-4")
+        
+        revised_scenes = await generate_revised_scenes_with_gpt4(
+            extracted_data.revision_request,
+            original_scenes,
+            openai_client
+        )
+        
+        if not revised_scenes or len(revised_scenes) != 5:
+            error_msg = f"Failed to generate revised scenes - got {len(revised_scenes) if revised_scenes else 0} instead of 5"
+            logger.error(f"REVISION_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        logger.info(f"REVISION_PIPELINE: Generated {len(revised_scenes)} revised scenes")
+        
+        # Step 3: Store revised scenes in database (create new scenes for revision video_id)
+        logger.info("REVISION_PIPELINE: Step 3 - Storing revised scenes in database...")
+        await update_task_progress(extracted_data.task_id, 25, "Storing revised scenes in database")
+        
+        scenes_stored = await store_scenes_in_supabase(revised_scenes, extracted_data.video_id, extracted_data.user_id)
+        if not scenes_stored:
+            error_msg = "Failed to store revised scenes in database"
+            logger.error(f"REVISION_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        # Step 4: Resize the initial product image (use original image from revision data)
+        logger.info("REVISION_PIPELINE: Step 4 - Resizing product image for revision...")
+        await update_task_progress(extracted_data.task_id, 30, "Resizing product image")
+        
+        resized_image_url = await resize_image_with_fal(extracted_data.image_url)
+        if not resized_image_url or resized_image_url == extracted_data.image_url:
+            logger.warning("REVISION_PIPELINE: Image resize failed or returned original image, continuing with original")
+            resized_image_url = extracted_data.image_url
+        logger.info(f"REVISION_PIPELINE: Product image resized: {resized_image_url}")
+        
+        # Step 5: Generate scene images for revised scenes
+        logger.info("REVISION_PIPELINE: Step 5 - Generating scene images for revised scenes...")
+        await update_task_progress(extracted_data.task_id, 40, "Generating revised scene images")
+        
+        # Extract image prompts from revised scenes
+        image_prompts = [scene.get("image_prompt", "") for scene in revised_scenes]
+        scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
+        
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
+        if not scene_image_urls or len(scene_image_urls) != 5 or successful_images < 3:
+            error_msg = f"Failed to generate revised scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least 3 out of 5)"
+            logger.error(f"REVISION_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        # Update database with revised scene image URLs
+        await update_scenes_with_image_urls(scene_image_urls, extracted_data.video_id, extracted_data.user_id)
+        
+        # Step 6: Generate voiceovers for revised scenes
+        logger.info("REVISION_PIPELINE: Step 6 - Generating voiceovers for revised scenes...")
+        await update_task_progress(extracted_data.task_id, 50, "Generating revised voiceovers")
+        
+        # Extract voiceover prompts from revised scenes
+        voiceover_prompts = [scene.get("vioce_over", "") for scene in revised_scenes]
+        voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
+        
+        if voiceover_urls:
+            await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
+        
+        # Step 7: Generate videos from revised scene images
+        logger.info("REVISION_PIPELINE: Step 7 - Generating videos from revised scene images...")
+        await update_task_progress(extracted_data.task_id, 65, "Generating revised scene videos")
+        
+        # Extract visual descriptions from revised scenes
+        video_prompts = [scene.get("visual_description", "") for scene in revised_scenes]
+        video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
+        
+        # Check if we got the right number of results AND if enough scenes succeeded
+        successful_videos = len([url for url in video_urls if url]) if video_urls else 0
+        if not video_urls or len(video_urls) != 5 or successful_videos < 3:
+            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least 3 out of 5)"
+            logger.error(f"REVISION_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        # Update database with revised scene video URLs
+        await update_scenes_with_video_urls(video_urls, extracted_data.video_id, extracted_data.user_id)
+        
+        # Step 8: Get or generate background music (try to reuse from parent video first)
+        logger.info("REVISION_PIPELINE: Step 8 - Getting background music...")
+        await update_task_progress(extracted_data.task_id, 75, "Getting background music")
+        
+        # Try to get existing music from parent video
+        existing_music = await get_music_for_video(extracted_data.parent_video_id, extracted_data.user_id)
+        normalized_music_url = ""
+        
+        if existing_music and existing_music.get("music_url"):
+            # Reuse existing music from parent video
+            normalized_music_url = existing_music["music_url"]
+            logger.info(f"REVISION_PIPELINE: Reusing music from parent video: {normalized_music_url}")
+            
+            # Store music for revision video
+            await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+        else:
+            # Generate new music if parent doesn't have any
+            logger.info("REVISION_PIPELINE: No existing music found, generating new background music...")
+            music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
+            raw_music_url = await generate_background_music_with_fal(music_prompts)
+            
+            if raw_music_url:
+                # Normalize music volume
+                logger.info("REVISION_PIPELINE: Normalizing background music volume...")
+                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
+                
+                # Store music in database
+                await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+        
+        # Step 9: Compose final revision video with all audio tracks
+        logger.info("REVISION_PIPELINE: Step 9 - Composing final revision video with audio...")
+        await update_task_progress(extracted_data.task_id, 85, "Composing final revision video")
+        
+        # First compose video clips without audio
+        from .services.video_generation import compose_final_video
+        composed_video_url = await compose_final_video(video_urls)
+        
+        if not composed_video_url:
+            error_msg = "Failed to compose final revision video - no video URL returned"
+            logger.error(f"REVISION_PIPELINE: {error_msg}")
+            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+            raise Exception(error_msg)
+        
+        # Then add all audio tracks
+        final_video_url = await compose_final_video_with_audio(
+            composed_video_url, 
+            voiceover_urls, 
+            normalized_music_url
+        )
+        
+        if not final_video_url:
+            final_video_url = composed_video_url  # Fallback to video without audio
+        
+        # Step 10: Add captions to final revision video
+        logger.info("REVISION_PIPELINE: Step 10 - Adding captions to final revision video...")
+        await update_task_progress(extracted_data.task_id, 95, "Adding captions to final revision video")
+        
+        captioned_video_url = await add_captions_to_video(final_video_url)
+        
+        # Step 11: Send final revision video to frontend
+        logger.info("REVISION_PIPELINE: Step 11 - Sending final revision video to frontend...")
+        await update_task_progress(extracted_data.task_id, 100, "Revision processing completed successfully")
+        
+        logger.info("REVISION_PIPELINE: Sending final revision video to frontend...")
+        callback_success = await send_video_callback(
+            captioned_video_url,
+            extracted_data.video_id,
+            extracted_data.chat_id,
+            extracted_data.user_id,
+            is_revision=True
+        )
+        
+        if callback_success:
+            logger.info("REVISION_PIPELINE: Video revision processing completed successfully!")
+        else:
+            logger.warning("REVISION_PIPELINE: Video revision processing completed but callback failed")
+        
+        return {
+            "status": "completed",
+            "final_video_url": captioned_video_url,
+            "callback_sent": callback_success
+        }
+        
+    except Exception as e:
+        logger.error(f"REVISION_PIPELINE: Video revision processing failed: {e}")
+        logger.exception("Full traceback:")
+        
+        # Send error callback
+        await send_error_callback(
+            str(e),
+            extracted_data.video_id,
+            extracted_data.chat_id,
+            extracted_data.user_id
+        )
+        
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
+
+
+# ARQ Worker Settings
+class WorkerSettings:
+    """ARQ Worker configuration settings"""
+    
+    # Redis connection settings
+    redis_settings = RedisSettings.from_dsn(settings.redis_url)
+    
+    # Worker configuration
+    functions = [
+        process_video_request,
+        process_wan_request,
+        process_video_revision,
+    ]
+    
+    # Job settings
+    job_timeout = settings.task_timeout  # Use timeout from settings (15 minutes)
+    max_jobs = settings.max_concurrent_tasks  # Use max concurrent tasks from settings
+    max_tries = 3  # Retry failed jobs up to 3 times
+    
+    # Health check settings
+    health_check_interval = 30  # Check worker health every 30 seconds
+    
+    # Logging
+    log_results = True
+    
+    # Keep job results for debugging
+    keep_result = 3600  # Keep results for 1 hour
+
+
+# Export WorkerSettings for use by run_worker.py
+__all__ = ['WorkerSettings']
