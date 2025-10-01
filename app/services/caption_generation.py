@@ -52,7 +52,7 @@ async def create_video_with_captions(video_url: str) -> Optional[str]:
                             "settings": {
                                 "style": "classic",
                                 "font-family": "Nunito",
-                                "font-size": 60,
+                                "font-size": 55,
                                 "word-color": "#FFFFFF",
                                 "line-color": "#FFFFFF",
                                 "shadow-color": "#00000030",
