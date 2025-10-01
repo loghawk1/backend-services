@@ -29,10 +29,10 @@ from .services.callback_service import send_video_callback, send_error_callback
 from .services.database_operations import (
     store_scenes_in_supabase, store_wan_scenes_in_supabase,
     update_scenes_with_image_urls, update_scenes_with_video_urls, update_scenes_with_voiceover_urls,
-    get_scenes_for_video, get_music_for_video,
+    get_scenes_for_video, get_music_for_video, detect_video_workflow_type,
     update_video_id_for_scenes, update_video_id_for_music, update_scenes_with_revised_content
 )
-from .services.revision_ai import generate_revised_scenes_with_gpt4
+from .services.revision_ai import generate_revised_scenes_with_gpt4, generate_revised_wan_scenes_with_gpt4
 from .services.task_utils import update_task_progress
 from .services.wan_generation import generate_wan_scene_images_with_fal, generate_wan_voiceovers_with_fal, generate_wan_videos_with_fal
 
@@ -530,27 +530,43 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
         
+        # Detect workflow type (regular vs WAN)
+        workflow_type = await detect_video_workflow_type(extracted_data.parent_video_id, extracted_data.user_id)
+        logger.info(f"REVISION_PIPELINE: Detected workflow type: {workflow_type}")
+        
         original_scenes = await get_scenes_for_video(extracted_data.parent_video_id, extracted_data.user_id)
-        if not original_scenes or len(original_scenes) != 5:
-            error_msg = f"Failed to retrieve original scenes - got {len(original_scenes) if original_scenes else 0} instead of 5"
+        
+        expected_scene_count = 6 if workflow_type == "wan" else 5
+        if not original_scenes or len(original_scenes) != expected_scene_count:
+            error_msg = f"Failed to retrieve original scenes - got {len(original_scenes) if original_scenes else 0} instead of {expected_scene_count}"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
         
         logger.info(f"REVISION_PIPELINE: Retrieved {len(original_scenes)} original scenes")
         
-        # Step 2: Generate revised scenes using GPT-4
-        logger.info("REVISION_PIPELINE: Step 2 - Generating revised scenes with GPT-4...")
-        await update_task_progress(extracted_data.task_id, 20, "Generating revised scenes with GPT-4")
+        # Step 2: Generate revised scenes using appropriate GPT-4 function
+        if workflow_type == "wan":
+            logger.info("REVISION_PIPELINE: Step 2 - Generating revised WAN scenes with GPT-4...")
+            await update_task_progress(extracted_data.task_id, 20, "Generating revised WAN scenes with GPT-4")
+            
+            revised_scenes = await generate_revised_wan_scenes_with_gpt4(
+                extracted_data.revision_request,
+                original_scenes,
+                openai_client
+            )
+        else:
+            logger.info("REVISION_PIPELINE: Step 2 - Generating revised regular scenes with GPT-4...")
+            await update_task_progress(extracted_data.task_id, 20, "Generating revised scenes with GPT-4")
+            
+            revised_scenes = await generate_revised_scenes_with_gpt4(
+                extracted_data.revision_request,
+                original_scenes,
+                openai_client
+            )
         
-        revised_scenes = await generate_revised_scenes_with_gpt4(
-            extracted_data.revision_request,
-            original_scenes,
-            openai_client
-        )
-        
-        if not revised_scenes or len(revised_scenes) != 5:
-            error_msg = f"Failed to generate revised scenes - got {len(revised_scenes) if revised_scenes else 0} instead of 5"
+        if not revised_scenes or len(revised_scenes) != expected_scene_count:
+            error_msg = f"Failed to generate revised scenes - got {len(revised_scenes) if revised_scenes else 0} instead of {expected_scene_count}"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
@@ -561,7 +577,23 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         logger.info("REVISION_PIPELINE: Step 3 - Storing revised scenes in database...")
         await update_task_progress(extracted_data.task_id, 25, "Storing revised scenes in database")
         
-        scenes_stored = await store_scenes_in_supabase(revised_scenes, extracted_data.video_id, extracted_data.user_id)
+        # Use appropriate storage function based on workflow type
+        if workflow_type == "wan":
+            # For WAN revisions, we need to convert back to WAN format for storage
+            wan_scenes_for_storage = []
+            for scene in revised_scenes:
+                wan_scene = {
+                    "scene_number": scene.get("scene_number", 1),
+                    "nano_banana_prompt": scene.get("image_prompt", ""),
+                    "elevenlabs_prompt": scene.get("vioce_over", ""),
+                    "wan2_5_prompt": scene.get("visual_description", "")
+                }
+                wan_scenes_for_storage.append(wan_scene)
+            
+            scenes_stored = await store_wan_scenes_in_supabase(wan_scenes_for_storage, extracted_data.video_id, extracted_data.user_id)
+        else:
+            scenes_stored = await store_scenes_in_supabase(revised_scenes, extracted_data.video_id, extracted_data.user_id)
+            
         if not scenes_stored:
             error_msg = "Failed to store revised scenes in database"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
@@ -584,12 +616,20 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         
         # Extract image prompts from revised scenes
         image_prompts = [scene.get("image_prompt", "") for scene in revised_scenes]
-        scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
+        
+        # Use appropriate image generation function based on workflow type
+        if workflow_type == "wan":
+            # For WAN revisions, use WAN-specific image generation
+            scene_image_urls = await generate_wan_scene_images_with_fal(image_prompts, resized_image_url)
+        else:
+            # For regular revisions, use regular image generation
+            scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
         
         # Check if we got the right number of results AND if enough scenes succeeded
         successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
-        if not scene_image_urls or len(scene_image_urls) != 5 or successful_images < 3:
-            error_msg = f"Failed to generate revised scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least 3 out of 5)"
+        min_required = 4 if workflow_type == "wan" else 3
+        if not scene_image_urls or len(scene_image_urls) != expected_scene_count or successful_images < min_required:
+            error_msg = f"Failed to generate revised scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least {min_required} out of {expected_scene_count})"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
@@ -603,7 +643,14 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         
         # Extract voiceover prompts from revised scenes
         voiceover_prompts = [scene.get("vioce_over", "") for scene in revised_scenes]
-        voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
+        
+        # Use appropriate voiceover generation function based on workflow type
+        if workflow_type == "wan":
+            # For WAN revisions, use WAN-specific voiceover generation
+            voiceover_urls = await generate_wan_voiceovers_with_fal(voiceover_prompts)
+        else:
+            # For regular revisions, use regular voiceover generation
+            voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
         
         if voiceover_urls:
             await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
@@ -614,12 +661,20 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         
         # Extract visual descriptions from revised scenes
         video_prompts = [scene.get("visual_description", "") for scene in revised_scenes]
-        video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
+        
+        # Use appropriate video generation function based on workflow type
+        if workflow_type == "wan":
+            # For WAN revisions, use WAN-specific video generation
+            video_urls = await generate_wan_videos_with_fal(scene_image_urls, video_prompts)
+        else:
+            # For regular revisions, use regular video generation
+            video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
         
         # Check if we got the right number of results AND if enough scenes succeeded
         successful_videos = len([url for url in video_urls if url]) if video_urls else 0
-        if not video_urls or len(video_urls) != 5 or successful_videos < 3:
-            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least 3 out of 5)"
+        min_required_videos = 4 if workflow_type == "wan" else 3
+        if not video_urls or len(video_urls) != expected_scene_count or successful_videos < min_required_videos:
+            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least {min_required_videos} out of {expected_scene_count})"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
@@ -660,25 +715,46 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         logger.info("REVISION_PIPELINE: Step 9 - Composing final revision video with audio...")
         await update_task_progress(extracted_data.task_id, 85, "Composing final revision video")
         
-        # First compose video clips without audio
-        from .services.video_generation import compose_final_video
-        composed_video_url = await compose_final_video(video_urls)
-        
-        if not composed_video_url:
-            error_msg = "Failed to compose final revision video - no video URL returned"
-            logger.error(f"REVISION_PIPELINE: {error_msg}")
-            await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
-            raise Exception(error_msg)
-        
-        # Then add all audio tracks
-        final_video_url = await compose_final_video_with_audio(
-            composed_video_url, 
-            voiceover_urls, 
-            normalized_music_url
-        )
-        
-        if not final_video_url:
-            final_video_url = composed_video_url  # Fallback to video without audio
+        # Use appropriate composition function based on workflow type
+        if workflow_type == "wan":
+            # For WAN revisions, use JSON2Video composition
+            from .services.json2video_composition import compose_wan_videos_and_voiceovers_with_json2video, compose_final_video_with_music_json2video
+            
+            # Step 1: Compose videos + voiceovers
+            composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls)
+            
+            if not composed_video_url:
+                error_msg = "Failed to compose final WAN revision video - no video URL returned"
+                logger.error(f"REVISION_PIPELINE: {error_msg}")
+                await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+                raise Exception(error_msg)
+            
+            # Step 2: Add background music if available
+            final_video_url = composed_video_url
+            if normalized_music_url:
+                final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url)
+                if not final_video_url:
+                    final_video_url = composed_video_url  # Fallback to video without music
+        else:
+            # For regular revisions, use fal.ai composition
+            from .services.video_generation import compose_final_video
+            composed_video_url = await compose_final_video(video_urls)
+            
+            if not composed_video_url:
+                error_msg = "Failed to compose final revision video - no video URL returned"
+                logger.error(f"REVISION_PIPELINE: {error_msg}")
+                await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
+                raise Exception(error_msg)
+            
+            # Then add all audio tracks
+            final_video_url = await compose_final_video_with_audio(
+                composed_video_url, 
+                voiceover_urls, 
+                normalized_music_url
+            )
+            
+            if not final_video_url:
+                final_video_url = composed_video_url  # Fallback to video without audio
         
         # Step 10: Add captions to final revision video
         logger.info("REVISION_PIPELINE: Step 10 - Adding captions to final revision video...")
