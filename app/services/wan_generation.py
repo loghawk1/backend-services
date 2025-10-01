@@ -221,7 +221,7 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
             # Add timeout to prevent hanging
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
-                timeout=180  # 3 minutes timeout for voiceovers
+                timeout=300  # 5 minutes timeout for voiceovers (increased buffer)
             )
 
             # Process results
@@ -287,9 +287,9 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     arguments={
                         "prompt": wan2_5_prompt,
                         "image_url": image_url,
-                        "resolution": "480p",
+                        "resolution": "1080p",
                         "duration": "5",  # 5 seconds per scene
-                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.  voiceover or make the avatar talk, only add sound effects Short sfx, melody background music, loud sfx",
+                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.",
                         "enable_prompt_expansion": True
                     }
                 )
@@ -371,4 +371,4 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
     except Exception as e:
         logger.error(f"WAN: Failed to generate videos: {e}")
         logger.exception("Full traceback:")
-        return []
+        return []-
