@@ -298,7 +298,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     arguments={
                         "prompt": wan2_5_prompt,
                         "image_url": image_url,
-                        "resolution": "1080p",
+                        "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
                         "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.",
                         "enable_prompt_expansion": True
