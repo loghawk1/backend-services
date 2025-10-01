@@ -170,7 +170,7 @@ async def compose_final_video_with_music_json2video(
                 "src": composed_video_url,
                 "start": 0,
                 "duration": 30,  # 30 seconds total (6 scenes × 5 seconds)
-                "volume": 1,  # Full volume for composed video (already has videos + voiceovers)
+                "volume": 0.5,  # Full volume for composed video (already has videos + voiceovers)
                 "resize": "fit"
             },
             {
@@ -178,7 +178,7 @@ async def compose_final_video_with_music_json2video(
                 "src": music_url,
                 "start": 0,
                 "duration": 30,  # 30 seconds background music
-                "volume": 0.2  # Low volume for background music
+                "volume": 1  # Low volume for background music
             }
         ]
         
