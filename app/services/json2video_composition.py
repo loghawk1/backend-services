@@ -55,7 +55,7 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
                     "src": valid_scene_clips[i],
                     "duration": 5,  # 5 seconds per scene
                     "volume": 0.2,  # Low volume for scene video
-                    "resize": "fit"
+                    "resize": "cover"
                 }
                 scene_elements.append(video_element)
                 logger.info(f"JSON2VIDEO: Added video for scene {i+1}: {valid_scene_clips[i]}")
@@ -79,7 +79,9 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
         
         # Prepare JSON2Video payload for Step 1
         json_data = {
-            "resolution": "instagram-feed",  # 9:16 aspect ratio
+            "resolution": "custom", # 9:16 aspect ratio
+            "width": 1080,
+            "height": 1920,
             "scenes": scenes
         }
         
@@ -171,7 +173,7 @@ async def compose_final_video_with_music_json2video(
                 "start": 0,
                 "duration": 30,  # 30 seconds total (6 scenes × 5 seconds)
                 "volume": 0.5,  # Full volume for composed video (already has videos + voiceovers)
-                "resize": "fit"
+                "resize": "cover"
             },
             {
                 "type": "audio",
