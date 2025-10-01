@@ -186,7 +186,9 @@ async def compose_final_video_with_music_json2video(
         
         # Prepare JSON2Video payload for Step 2
         json_data = {
-            "resolution": "instagram-feed",  # 9:16 aspect ratio
+            "resolution": "custom", # 9:16 aspect ratio
+            "width": 1080,
+            "height": 1920,
             "scenes": [{"elements": scene_elements}]
         }
         
