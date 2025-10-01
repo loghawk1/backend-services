@@ -37,7 +37,7 @@ async def create_video_with_captions(video_url: str) -> Optional[str]:
         }
         
         # Enhanced payload with better subtitle settings
-       payload = {
+        payload = {
             "resolution": "custom",
             "width": 1080,
             "height": 1920,
@@ -76,7 +76,6 @@ async def create_video_with_captions(video_url: str) -> Optional[str]:
                 }
             ]
         }
-
         
         logger.info("CAPTIONS: Sending request to JSON2Video API...")
         logger.info(f"CAPTIONS: Payload size: {len(str(payload))} characters")
