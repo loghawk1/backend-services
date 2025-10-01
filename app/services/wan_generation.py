@@ -149,13 +149,8 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
                 # Extract speech text by removing "Settings: ..." portion
                 voiceover_text = elevenlabs_prompt.strip()
                 
-                # Check if prompt contains "Settings:" and extract only the text before it
-                if "Settings:" in voiceover_text:
-                    # Split by "Settings:" and take only the first part (the actual speech text)
-                    voiceover_text = voiceover_text.split("Settings:")[0].strip()
-                    logger.info(f"WAN: Extracted speech text for scene {i+1}: '{voiceover_text}'")
-                else:
-                    logger.info(f"WAN: Using full prompt as speech text for scene {i+1}: '{voiceover_text}'")
+                # Use the full prompt as speech text (settings have been removed from GPT-4)
+                logger.info(f"WAN: Using speech text for scene {i+1}: '{voiceover_text}'")
                 
                 # Validate that we have actual speech text after extraction
                 if not voiceover_text:
