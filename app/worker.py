@@ -313,13 +313,84 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         resized_image_url = await resize_image_with_fal(extracted_data.image_url)
         logger.info(f"WAN_PIPELINE: Product image resized: {resized_image_url}")
         
-        # Step 4: Generate WAN scene images using Gemini edit
-        logger.info("WAN_PIPELINE: Step 4 - Generating WAN scene images...")
-        await update_task_progress(extracted_data.task_id, 25, "Generating WAN scene images with Gemini edit")
+        # Step 4: Parallelize independent generation tasks (images, voiceovers, music)
+        logger.info("WAN_PIPELINE: Step 4 - Starting parallel generation tasks...")
+        await update_task_progress(extracted_data.task_id, 25, "Starting parallel generation (images, voiceovers, music)")
         
         # Extract nano_banana_prompts from WAN scenes
         nano_banana_prompts = [scene.get("nano_banana_prompt", "") for scene in wan_scenes]
-        scene_image_urls = await generate_wan_scene_images_with_fal(nano_banana_prompts, resized_image_url)
+        
+        # Extract elevenlabs_prompts from WAN scenes
+        elevenlabs_prompts = [scene.get("elevenlabs_prompt", "") for scene in wan_scenes]
+        
+        # Create parallel tasks for independent generation steps
+        logger.info("WAN_PIPELINE: Creating parallel tasks for images, voiceovers, and music...")
+        
+        # Task 1: Generate WAN scene images
+        image_task = asyncio.create_task(
+            generate_wan_scene_images_with_fal(nano_banana_prompts, resized_image_url)
+        )
+        logger.info("WAN_PIPELINE: Created image generation task")
+        
+        # Task 2: Generate WAN voiceovers
+        voiceover_task = asyncio.create_task(
+            generate_wan_voiceovers_with_fal(elevenlabs_prompts)
+        )
+        logger.info("WAN_PIPELINE: Created voiceover generation task")
+        
+        # Task 3: Generate background music (if music_prompt exists)
+        music_task = None
+        if music_prompt and music_prompt.strip():
+            logger.info(f"WAN_PIPELINE: Creating music generation task with prompt: {music_prompt}")
+            from .services.music_generation import generate_wan_background_music_with_fal
+            music_task = asyncio.create_task(
+                generate_wan_background_music_with_fal(music_prompt)
+            )
+        else:
+            logger.warning("WAN_PIPELINE: No valid music prompt - creating default music task")
+            default_music_prompt = "Lo-fi hip hop with calm steady beat"
+            from .services.music_generation import generate_wan_background_music_with_fal
+            music_task = asyncio.create_task(
+                generate_wan_background_music_with_fal(default_music_prompt)
+            )
+        
+        # Wait for all parallel tasks to complete
+        logger.info("WAN_PIPELINE: Waiting for parallel tasks to complete...")
+        await update_task_progress(extracted_data.task_id, 30, "Processing parallel generation tasks...")
+        
+        try:
+            # Use asyncio.gather to run tasks concurrently
+            scene_image_urls, voiceover_urls, raw_music_url = await asyncio.gather(
+                image_task,
+                voiceover_task,
+                music_task,
+                return_exceptions=True
+            )
+            
+            # Handle any exceptions from parallel tasks
+            if isinstance(scene_image_urls, Exception):
+                logger.error(f"WAN_PIPELINE: Image generation task failed: {scene_image_urls}")
+                scene_image_urls = []
+            
+            if isinstance(voiceover_urls, Exception):
+                logger.error(f"WAN_PIPELINE: Voiceover generation task failed: {voiceover_urls}")
+                voiceover_urls = []
+            
+            if isinstance(raw_music_url, Exception):
+                logger.error(f"WAN_PIPELINE: Music generation task failed: {raw_music_url}")
+                raw_music_url = ""
+            
+            logger.info("WAN_PIPELINE: All parallel tasks completed!")
+            logger.info(f"WAN_PIPELINE: Generated {len([url for url in scene_image_urls if url])} scene images")
+            logger.info(f"WAN_PIPELINE: Generated {len([url for url in voiceover_urls if url])} voiceovers")
+            logger.info(f"WAN_PIPELINE: Music generation result: {'Success' if raw_music_url else 'Failed'}")
+            
+        except Exception as e:
+            logger.error(f"WAN_PIPELINE: Error in parallel task execution: {e}")
+            # Fallback to empty results
+            scene_image_urls = []
+            voiceover_urls = []
+            raw_music_url = ""
         
         # Check if we got the right number of results AND if enough scenes succeeded
         successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
@@ -330,21 +401,10 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             raise Exception(error_msg)
         
         # Update database with WAN scene image URLs
+        logger.info("WAN_PIPELINE: Updating database with scene image URLs...")
         await update_scenes_with_image_urls(scene_image_urls, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 5: Generate WAN voiceovers
-        logger.info("WAN_PIPELINE: Step 5 - Generating WAN voiceovers...")
-        await update_task_progress(extracted_data.task_id, 35, "Generating WAN voiceovers")
-        
-        # Extract elevenlabs_prompts from WAN scenes
-        elevenlabs_prompts = [scene.get("elevenlabs_prompt", "") for scene in wan_scenes]
-        logger.info(f"WAN_PIPELINE: Extracted {len(elevenlabs_prompts)} elevenlabs prompts")
-        for i, prompt in enumerate(elevenlabs_prompts):
-            logger.info(f"WAN_PIPELINE: ElevenLabs prompt {i+1}: {prompt[:100]}...")
-        
-        voiceover_urls = await generate_wan_voiceovers_with_fal(elevenlabs_prompts)
-        logger.info(f"WAN_PIPELINE: Generated voiceover URLs: {voiceover_urls}")
-        
+        # Update database with voiceover URLs
         if voiceover_urls:
             logger.info("WAN_PIPELINE: Updating database with voiceover URLs...")
             await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
@@ -357,8 +417,20 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
         
-        # Step 6: Generate WAN videos from scene images
-        logger.info("WAN_PIPELINE: Step 6 - Generating WAN videos from scene images...")
+        # Process background music (normalize and store)
+        normalized_music_url = ""
+        if raw_music_url:
+            logger.info("WAN_PIPELINE: Normalizing background music volume...")
+            normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
+            
+            # Store music in database
+            await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+            logger.info(f"WAN_PIPELINE: Background music processed and stored: {normalized_music_url}")
+        else:
+            logger.warning("WAN_PIPELINE: No background music generated")
+        
+        # Step 5: Generate WAN videos from scene images (depends on images, so runs after parallel tasks)
+        logger.info("WAN_PIPELINE: Step 5 - Generating WAN videos from scene images...")
         await update_task_progress(extracted_data.task_id, 50, "Generating WAN scene videos")
         
         # Extract wan2_5_prompts from WAN scenes
@@ -376,49 +448,8 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         # Update database with WAN scene video URLs
         await update_scenes_with_video_urls(video_urls, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 7: Generate background music from music_prompt
-        logger.info("WAN_PIPELINE: Step 7 - Generating background music from music_prompt...")
-        await update_task_progress(extracted_data.task_id, 65, "Generating background music")
-        
-        normalized_music_url = ""
-        if music_prompt and music_prompt.strip():
-            logger.info(f"WAN_PIPELINE: Using music prompt: {music_prompt}")
-            from .services.music_generation import generate_wan_background_music_with_fal
-            raw_music_url = await generate_wan_background_music_with_fal(music_prompt)
-            
-            if raw_music_url:
-                # Normalize music volume
-                logger.info("WAN_PIPELINE: Normalizing background music volume...")
-                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
-                
-                # Store music in database
-                await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
-                logger.info(f"WAN_PIPELINE: Background music generated and stored: {normalized_music_url}")
-            else:
-                logger.error("WAN_PIPELINE: Failed to generate background music from Lyria")
-        else:
-            logger.warning("WAN_PIPELINE: No valid music prompt provided")
-            logger.info("WAN_PIPELINE: Generating music with default prompt...")
-            
-            # Use default music prompt if none provided
-            default_music_prompt = "Create a light, upbeat lo-fi background track with soft percussion and gentle chimes. Keep the energy fresh and youthful, matching a morning skincare routine vibe. Ensure the music supports but never overpowers the short voiceovers, maintaining a natural UGC aesthetic."
-            
-            from .services.music_generation import generate_wan_background_music_with_fal
-            raw_music_url = await generate_wan_background_music_with_fal(default_music_prompt)
-            
-            if raw_music_url:
-                # Normalize music volume
-                logger.info("WAN_PIPELINE: Normalizing background music volume...")
-                normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
-                
-                # Store music in database
-                await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
-                logger.info(f"WAN_PIPELINE: Background music generated with default prompt and stored: {normalized_music_url}")
-            else:
-                logger.error("WAN_PIPELINE: Failed to generate background music even with default prompt")
-        
-        # Step 8: Compose final WAN video using JSON2Video
-        logger.info("WAN_PIPELINE: Step 8 - Composing WAN videos + voiceovers (JSON2Video Step 1)...")
+        # Step 6: Compose final WAN video using JSON2Video
+        logger.info("WAN_PIPELINE: Step 6 - Composing WAN videos + voiceovers (JSON2Video Step 1)...")
         await update_task_progress(extracted_data.task_id, 75, "Composing videos with voiceovers")
         
         logger.info(f"WAN_PIPELINE: Step 1 - Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs")
@@ -439,8 +470,8 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         logger.info(f"WAN_PIPELINE: Step 1 completed - Composed video URL: {composed_video_url}")
         
-        # Step 9: Compose final video with background music (JSON2Video Step 2)
-        logger.info("WAN_PIPELINE: Step 9 - Adding background music to composed video (JSON2Video Step 2)...")
+        # Step 7: Compose final video with background music (JSON2Video Step 2)
+        logger.info("WAN_PIPELINE: Step 7 - Adding background music to composed video (JSON2Video Step 2)...")
         await update_task_progress(extracted_data.task_id, 85, "Adding background music to final video")
         
         logger.info(f"WAN_PIPELINE: Step 2 - Adding background music: {normalized_music_url}")
@@ -457,14 +488,14 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         
         logger.info(f"WAN_PIPELINE: Final video URL: {final_video_url}")
         
-        # Step 10: Add captions to final WAN video
-        logger.info("WAN_PIPELINE: Step 10 - Adding captions to final WAN video...")
+        # Step 8: Add captions to final WAN video
+        logger.info("WAN_PIPELINE: Step 8 - Adding captions to final WAN video...")
         await update_task_progress(extracted_data.task_id, 90, "Adding captions to final WAN video")
         
         captioned_video_url = await add_captions_to_video(final_video_url)
         
-        # Step 11: Send final WAN video to frontend
-        logger.info("WAN_PIPELINE: Step 11 - Sending final WAN video to frontend...")
+        # Step 9: Send final WAN video to frontend
+        logger.info("WAN_PIPELINE: Step 9 - Sending final WAN video to frontend...")
         await update_task_progress(extracted_data.task_id, 100, "WAN processing completed successfully")
         
         logger.info("WAN_PIPELINE: Sending final WAN video to frontend...")
