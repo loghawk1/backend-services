@@ -140,27 +140,43 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
         
         for i, elevenlabs_prompt in enumerate(elevenlabs_prompts):
             try:
-                # Use the elevenlabs_prompt directly as text input (no extraction needed)
+                # Extract only the speech text from elevenlabs_prompt, removing "Settings: ..." part
                 if not elevenlabs_prompt or not elevenlabs_prompt.strip():
                     logger.warning(f"WAN: Empty elevenlabs_prompt for scene {i+1}")
                     handlers.append(None)
                     continue
 
-                # Truncate if too long (max 5000 characters according to API docs)
+                # Extract speech text by removing "Settings: ..." portion
                 voiceover_text = elevenlabs_prompt.strip()
+                
+                # Check if prompt contains "Settings:" and extract only the text before it
+                if "Settings:" in voiceover_text:
+                    # Split by "Settings:" and take only the first part (the actual speech text)
+                    voiceover_text = voiceover_text.split("Settings:")[0].strip()
+                    logger.info(f"WAN: Extracted speech text for scene {i+1}: '{voiceover_text}'")
+                else:
+                    logger.info(f"WAN: Using full prompt as speech text for scene {i+1}: '{voiceover_text}'")
+                
+                # Validate that we have actual speech text after extraction
+                if not voiceover_text:
+                    logger.warning(f"WAN: No speech text found after extraction for scene {i+1}")
+                    handlers.append(None)
+                    continue
+                
+                # Truncate if too long (max 5000 characters according to API docs)
                 if len(voiceover_text) > 5000:
                     voiceover_text = voiceover_text[:5000]
                     logger.warning(f"WAN: Truncated elevenlabs_prompt for scene {i+1} to 5000 characters")
 
                 logger.info(f"WAN: Submitting voiceover request for scene {i+1}...")
-                logger.info(f"WAN: Using elevenlabs_prompt directly as text: {voiceover_text[:100]}...")
+                logger.info(f"WAN: Using extracted speech text: {voiceover_text[:100]}...")
 
-                # Submit voiceover generation request using MiniMax Speech 2.5 Turbo with correct API format
+                # Submit voiceover generation request using MiniMax Speech 2.5 Turbo
                 handler = await asyncio.to_thread(
                     fal_client.submit,
                     "fal-ai/minimax/preview/speech-2.5-turbo",
                     arguments={
-                        "text": voiceover_text,  # Use elevenlabs_prompt directly
+                        "text": voiceover_text,  # Use extracted speech text only
                         "voice_setting": {
                             "voice_id": "Wise_Woman",
                             "speed": 1.2,  # Slightly faster for UGC feel
@@ -234,7 +250,7 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
                 voiceover_urls[scene_index] = voiceover_url
 
         except asyncio.TimeoutError:
-            logger.error("WAN: Voiceover generation timed out after 3 minutes")
+            logger.error("WAN: Voiceover generation timed out after 5 minutes")
             # Continue with whatever results we have
 
         successful_voiceovers = len([url for url in voiceover_urls if url])
