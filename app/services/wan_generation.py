@@ -163,7 +163,7 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
                         "text": voiceover_text,  # Use elevenlabs_prompt directly
                         "voice_setting": {
                             "voice_id": "Wise_Woman",
-                            "speed": 1.1,  # Slightly faster for UGC feel
+                            "speed": 1.2,  # Slightly faster for UGC feel
                             "vol": 1,
                             "pitch": 0,
                             "english_normalization": False
