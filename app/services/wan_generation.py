@@ -371,4 +371,4 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
     except Exception as e:
         logger.error(f"WAN: Failed to generate videos: {e}")
         logger.exception("Full traceback:")
-        return []-
+        return []
