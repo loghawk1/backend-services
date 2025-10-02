@@ -656,77 +656,188 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             resized_image_url = extracted_data.image_url
         logger.info(f"REVISION_PIPELINE: Product image resized to {extracted_data.aspect_ratio}: {resized_image_url}")
         
-        # Step 5: Generate scene images for revised scenes
-        logger.info("REVISION_PIPELINE: Step 5 - Generating scene images for revised scenes...")
-        await update_task_progress(extracted_data.task_id, 40, "Generating revised scene images")
+        # Step 5: Generate scene images (only for changed scenes)
+        logger.info("REVISION_PIPELINE: Step 5 - Generating scene images (granular regeneration)...")
+        await update_task_progress(extracted_data.task_id, 40, "Generating revised scene images (selective)")
         
-        # Extract image prompts from revised scenes
-        image_prompts = [scene.get("image_prompt", "") for scene in revised_scenes]
+        final_scene_image_urls = []
+        images_to_generate = []
         
-        # Use appropriate image generation function based on workflow type
-        if workflow_type == "wan":
-            # For WAN revisions, use WAN-specific image generation
-            scene_image_urls = await generate_wan_scene_images_with_fal(image_prompts, resized_image_url)
-        else:
-            # For regular revisions, use regular image generation
-            scene_image_urls = await generate_scene_images_with_fal(image_prompts, resized_image_url)
+        # Determine which images need regeneration
+        for scene_change in scene_changes:
+            if scene_change["image_needs_regen"]:
+                images_to_generate.append({
+                    "scene_number": scene_change["scene_number"],
+                    "image_prompt": scene_change["revised_image_prompt"]
+                })
+                logger.info(f"REVISION_PIPELINE: Scene {scene_change['scene_number']} image will be regenerated")
+            else:
+                logger.info(f"REVISION_PIPELINE: Scene {scene_change['scene_number']} image will be reused: {scene_change['original_image_url']}")
         
-        # Check if we got the right number of results AND if enough scenes succeeded
-        successful_images = len([url for url in scene_image_urls if url]) if scene_image_urls else 0
+        logger.info(f"REVISION_PIPELINE: Regenerating {len(images_to_generate)} out of {len(scene_changes)} scene images")
+        
+        # Generate only the images that need regeneration
+        generated_images = {}
+        if images_to_generate:
+            if workflow_type == "wan":
+                # For WAN, we need to generate all changed images at once
+                image_prompts_to_generate = [img["image_prompt"] for img in images_to_generate]
+                generated_image_urls = await generate_wan_scene_images_with_fal(image_prompts_to_generate, resized_image_url)
+                
+                # Map generated URLs back to scene numbers
+                for i, img_info in enumerate(images_to_generate):
+                    if i < len(generated_image_urls) and generated_image_urls[i]:
+                        generated_images[img_info["scene_number"]] = generated_image_urls[i]
+            else:
+                # For regular workflow, generate images individually
+                for img_info in images_to_generate:
+                    try:
+                        generated_url = await generate_single_scene_image_with_fal(
+                            img_info["image_prompt"], 
+                            resized_image_url
+                        )
+                        if generated_url:
+                            generated_images[img_info["scene_number"]] = generated_url
+                            logger.info(f"REVISION_PIPELINE: Generated new image for scene {img_info['scene_number']}")
+                        else:
+                            logger.warning(f"REVISION_PIPELINE: Failed to generate image for scene {img_info['scene_number']}")
+                    except Exception as e:
+                        logger.error(f"REVISION_PIPELINE: Error generating image for scene {img_info['scene_number']}: {e}")
+        
+        # Build final image URLs list (mix of generated and reused)
+        for scene_change in scene_changes:
+            scene_number = scene_change["scene_number"]
+            if scene_number in generated_images:
+                final_scene_image_urls.append(generated_images[scene_number])
+            else:
+                # Reuse original image
+                final_scene_image_urls.append(scene_change["original_image_url"])
+        
+        # Validate we have enough successful images
+        successful_images = len([url for url in final_scene_image_urls if url])
         min_required = 4 if workflow_type == "wan" else 3
-        if not scene_image_urls or len(scene_image_urls) != expected_scene_count or successful_images < min_required:
-            error_msg = f"Failed to generate revised scene images - got {len(scene_image_urls) if scene_image_urls else 0} total, {successful_images} successful (need at least {min_required} out of {expected_scene_count})"
+        if successful_images < min_required:
+            error_msg = f"Failed to get enough scene images - got {successful_images} successful (need at least {min_required} out of {expected_scene_count})"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
         
-        # Update database with revised scene image URLs
-        await update_scenes_with_image_urls(scene_image_urls, extracted_data.video_id, extracted_data.user_id)
+        # Update database with final scene image URLs
+        await update_scenes_with_image_urls(final_scene_image_urls, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 6: Generate voiceovers for revised scenes
-        logger.info("REVISION_PIPELINE: Step 6 - Generating voiceovers for revised scenes...")
-        await update_task_progress(extracted_data.task_id, 50, "Generating revised voiceovers")
+        # Step 6: Generate voiceovers (only for changed scenes)
+        logger.info("REVISION_PIPELINE: Step 6 - Generating voiceovers (granular regeneration)...")
+        await update_task_progress(extracted_data.task_id, 50, "Generating revised voiceovers (selective)")
         
-        # Extract voiceover prompts from revised scenes
-        voiceover_prompts = [scene.get("vioce_over", "") for scene in revised_scenes]
+        final_voiceover_urls = []
         
-        # Use appropriate voiceover generation function based on workflow type
-        if workflow_type == "wan":
-            # For WAN revisions, use WAN-specific voiceover generation
-            voiceover_urls = await generate_wan_voiceovers_with_fal(voiceover_prompts)
+        # Check if any voiceovers need regeneration
+        voiceovers_need_regen = any(sc["voiceover_needs_regen"] for sc in scene_changes)
+        
+        if voiceovers_need_regen:
+            if workflow_type == "wan":
+                # For WAN, if any voiceover changed, regenerate all (due to batch processing requirements)
+                logger.info("REVISION_PIPELINE: WAN voiceover changes detected - regenerating all voiceovers")
+                
+                # Convert revised_scenes back to WAN format for voiceover generation
+                wan_scenes_for_voiceover = []
+                for scene in revised_scenes:
+                    wan_scene = {
+                        "scene_number": scene.get("scene_number", 1),
+                        "elevenlabs_prompt": scene.get("vioce_over", ""),
+                        "eleven_labs_emotion": "neutral",  # Default emotion
+                        "eleven_labs_voice_id": "Friendly_Person"  # Default voice
+                    }
+                    wan_scenes_for_voiceover.append(wan_scene)
+                
+                voiceover_urls = await generate_wan_voiceovers_with_fal(wan_scenes_for_voiceover)
+                final_voiceover_urls = voiceover_urls if voiceover_urls else [""] * expected_scene_count
+            else:
+                # For regular workflow, generate voiceovers individually for changed scenes
+                logger.info("REVISION_PIPELINE: Generating individual voiceovers for changed scenes")
+                
+                for scene_change in scene_changes:
+                    if scene_change["voiceover_needs_regen"]:
+                        try:
+                            generated_url = await generate_single_voiceover_with_fal(
+                                scene_change["revised_voiceover_prompt"]
+                            )
+                            final_voiceover_urls.append(generated_url if generated_url else "")
+                            if generated_url:
+                                logger.info(f"REVISION_PIPELINE: Generated new voiceover for scene {scene_change['scene_number']}")
+                            else:
+                                logger.warning(f"REVISION_PIPELINE: Failed to generate voiceover for scene {scene_change['scene_number']}")
+                        except Exception as e:
+                            logger.error(f"REVISION_PIPELINE: Error generating voiceover for scene {scene_change['scene_number']}: {e}")
+                            final_voiceover_urls.append("")
+                    else:
+                        # Reuse original voiceover
+                        final_voiceover_urls.append(scene_change["original_voiceover_url"])
         else:
-            # For regular revisions, use regular voiceover generation
-            voiceover_urls = await generate_voiceovers_with_fal(voiceover_prompts)
+            # No voiceovers need regeneration - reuse all originals
+            logger.info("REVISION_PIPELINE: No voiceover changes detected - reusing all original voiceovers")
+            final_voiceover_urls = [sc["original_voiceover_url"] for sc in scene_changes]
         
-        if voiceover_urls:
-            await update_scenes_with_voiceover_urls(voiceover_urls, extracted_data.video_id, extracted_data.user_id)
+        # Update database with final voiceover URLs
+        if final_voiceover_urls:
+            await update_scenes_with_voiceover_urls(final_voiceover_urls, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 7: Generate videos from revised scene images
-        logger.info("REVISION_PIPELINE: Step 7 - Generating videos from revised scene images...")
-        await update_task_progress(extracted_data.task_id, 65, "Generating revised scene videos")
+        # Step 7: Generate videos (only for changed scenes)
+        logger.info("REVISION_PIPELINE: Step 7 - Generating videos (granular regeneration)...")
+        await update_task_progress(extracted_data.task_id, 65, "Generating revised scene videos (selective)")
         
-        # Extract visual descriptions from revised scenes
-        video_prompts = [scene.get("visual_description", "") for scene in revised_scenes]
+        final_video_urls = []
         
-        # Use appropriate video generation function based on workflow type
-        if workflow_type == "wan":
-            # For WAN revisions, use WAN-specific video generation
-            video_urls = await generate_wan_videos_with_fal(scene_image_urls, video_prompts)
-        else:
-            # For regular revisions, use regular video generation
-            video_urls = await generate_videos_with_fal(scene_image_urls, video_prompts)
+        # Generate videos for scenes that need regeneration
+        for i, scene_change in enumerate(scene_changes):
+            if scene_change["video_needs_regen"]:
+                try:
+                    # Use the corresponding image URL from final_scene_image_urls
+                    scene_image_url = final_scene_image_urls[i] if i < len(final_scene_image_urls) else ""
+                    
+                    if not scene_image_url:
+                        logger.warning(f"REVISION_PIPELINE: No image URL available for scene {scene_change['scene_number']} video generation")
+                        final_video_urls.append("")
+                        continue
+                    
+                    generated_url = await generate_single_video_with_fal(
+                        scene_image_url,
+                        scene_change["revised_video_prompt"]
+                    )
+                    final_video_urls.append(generated_url if generated_url else "")
+                    if generated_url:
+                        logger.info(f"REVISION_PIPELINE: Generated new video for scene {scene_change['scene_number']}")
+                    else:
+                        logger.warning(f"REVISION_PIPELINE: Failed to generate video for scene {scene_change['scene_number']}")
+                except Exception as e:
+                    logger.error(f"REVISION_PIPELINE: Error generating video for scene {scene_change['scene_number']}: {e}")
+                    final_video_urls.append("")
+            else:
+                # Reuse original video
+                final_video_urls.append(scene_change["original_video_url"])
+                logger.info(f"REVISION_PIPELINE: Reusing original video for scene {scene_change['scene_number']}")
         
-        # Check if we got the right number of results AND if enough scenes succeeded
-        successful_videos = len([url for url in video_urls if url]) if video_urls else 0
+        # Validate we have enough successful videos
+        successful_videos = len([url for url in final_video_urls if url])
         min_required_videos = 4 if workflow_type == "wan" else 3
-        if not video_urls or len(video_urls) != expected_scene_count or successful_videos < min_required_videos:
-            error_msg = f"Failed to generate revised scene videos - got {len(video_urls) if video_urls else 0} total, {successful_videos} successful (need at least {min_required_videos} out of {expected_scene_count})"
+        if successful_videos < min_required_videos:
+            error_msg = f"Failed to get enough scene videos - got {successful_videos} successful (need at least {min_required_videos} out of {expected_scene_count})"
             logger.error(f"REVISION_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=True)
             raise Exception(error_msg)
         
-        # Update database with revised scene video URLs
-        await update_scenes_with_video_urls(video_urls, extracted_data.video_id, extracted_data.user_id)
+        # Update database with final video URLs
+        await update_scenes_with_video_urls(final_video_urls, extracted_data.video_id, extracted_data.user_id)
+        
+        # Log regeneration summary
+        images_regenerated = sum(1 for sc in scene_changes if sc["image_needs_regen"])
+        voiceovers_regenerated = len([url for i, url in enumerate(final_voiceover_urls) if scene_changes[i]["voiceover_needs_regen"] and url])
+        videos_regenerated = sum(1 for sc in scene_changes if sc["video_needs_regen"])
+        
+        logger.info(f"REVISION_PIPELINE: Granular regeneration completed:")
+        logger.info(f"REVISION_PIPELINE: - Images regenerated: {images_regenerated}/{expected_scene_count}")
+        logger.info(f"REVISION_PIPELINE: - Voiceovers regenerated: {voiceovers_regenerated}/{expected_scene_count}")
+        logger.info(f"REVISION_PIPELINE: - Videos regenerated: {videos_regenerated}/{expected_scene_count}")
         
         # Step 8: Get or generate background music (try to reuse from parent video first)
         logger.info("REVISION_PIPELINE: Step 8 - Getting background music...")
@@ -779,7 +890,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             from .services.json2video_composition import compose_wan_videos_and_voiceovers_with_json2video, compose_final_video_with_music_json2video
             
             # Step 1: Compose videos + voiceovers
-            composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls, extracted_data.aspect_ratio)
+            composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(final_video_urls, final_voiceover_urls, extracted_data.aspect_ratio)
             
             if not composed_video_url:
                 error_msg = "Failed to compose final WAN revision video - no video URL returned"
@@ -796,7 +907,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         else:
             # For regular revisions, use fal.ai composition
             from .services.video_generation import compose_final_video
-            composed_video_url = await compose_final_video(video_urls)
+            composed_video_url = await compose_final_video(final_video_urls)
             
             if not composed_video_url:
                 error_msg = "Failed to compose final revision video - no video URL returned"
@@ -807,7 +918,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             # Then add all audio tracks
             final_video_url = await compose_final_video_with_audio(
                 composed_video_url, 
-                voiceover_urls, 
+                final_voiceover_urls, 
                 normalized_music_url
             )
             
