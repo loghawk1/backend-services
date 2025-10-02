@@ -265,7 +265,6 @@ class WebhookHandler:
                 ("user_id", extracted.user_id),
                 ("user_email", extracted.user_email),
                 ("source", extracted.source)
-                ("source", extracted.source)
             ]
             
             missing_fields = [name for name, value in required_fields if not value]
