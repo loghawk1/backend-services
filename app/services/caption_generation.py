@@ -70,7 +70,7 @@ async def create_video_with_captions(video_url: str, aspect_ratio: str = "9:16")
                             "settings": {
                                 "style": "classic",
                                 "font-family": "Nunito",
-                                "font-size": 48,
+                                "font-size": 70,
                                 "word-color": "#FFFFFF",
                                 "line-color": "#FFFFFF",
                                 "shadow-color": "#000000",
@@ -80,7 +80,7 @@ async def create_video_with_captions(video_url: str, aspect_ratio: str = "9:16")
                                 "max-words-per-line": 3,
                                 "position": "custom",
                                 "x": width // 2,  # Center horizontally
-                                "y": height - 180  # Position near bottom with offset
+                                "y": 1400  # Position near bottom with offset
                             },
                             "language": "en"
                         }
