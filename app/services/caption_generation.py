@@ -3,17 +3,18 @@ import logging
 import httpx
 from typing import Optional
 from ..config import get_settings
+from .task_utils import get_resolution_from_aspect_ratio
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-
-async def create_video_with_captions(video_url: str) -> Optional[str]:
+async def create_video_with_captions(video_url: str, aspect_ratio: str = "9:16") -> Optional[str]:
     """
     Create a new video rendering job with captions using JSON2Video API.
     
     Args:
         video_url: The source video URL from final composition
+        aspect_ratio: Video aspect ratio (e.g., "9:16", "16:9", "1:1", "3:4", "4:3")
         
     Returns:
         project_id (string) if successful, None if failed
@@ -31,6 +32,10 @@ async def create_video_with_captions(video_url: str) -> Optional[str]:
         api_key_preview = settings.json2video_api_key[:8] + "..." if len(settings.json2video_api_key) > 8 else "SHORT_KEY"
         logger.info(f"CAPTIONS: Using API key: {api_key_preview}")
         
+        # Get dynamic resolution based on aspect ratio
+        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
+        logger.info(f"CAPTIONS: Using resolution {width}x{height} for aspect ratio {aspect_ratio}")
+        
         headers = {
             "x-api-key": settings.json2video_api_key,
             "Content-Type": "application/json"
@@ -38,37 +43,44 @@ async def create_video_with_captions(video_url: str) -> Optional[str]:
         
         # Enhanced payload with better subtitle settings
         payload = {
+            "id": f"caption_job_{hash(video_url) % 1000000}",  # Unique ID based on video URL
             "resolution": "custom",
-            "width": 1080,
-            "height": 1920,
+            "quality": "high",
+            "width": width,
+            "height": height,
             "scenes": [
                 {
-                    "id": "qyjh9lwj",
+                    "id": f"scene_{hash(video_url) % 1000000}",
                     "comment": "Scene 1 with captions",
                     "elements": [
                         {
-                            "id": "q6dznzcv",
+                            "id": f"video_{hash(video_url) % 1000000}",
                             "type": "video",
                             "src": video_url,
-                            "resize": "cover"
+                            "fit": "cover",
+                            "position": "center",
+                            "x": 0,
+                            "y": 0,
+                            "width": width,
+                            "height": height
                         },
                         {
-                            "id": "q41n9kxp",
+                            "id": f"subtitles_{hash(video_url) % 1000000}",
                             "type": "subtitles",
                             "settings": {
                                 "style": "classic",
                                 "font-family": "Nunito",
-                                "font-size": 65,
+                                "font-size": 48,
                                 "word-color": "#FFFFFF",
                                 "line-color": "#FFFFFF",
-                                "shadow-color": "#00000030",
-                                "shadow-offset": 0,
-                                "outline-width": 4,
-                                "outline-color": "#00000020",
-                                "max-words-per-line": 5,
+                                "shadow-color": "#000000",
+                                "shadow-offset": 2,
+                                "outline-width": 3,
+                                "outline-color": "#000000",
+                                "max-words-per-line": 3,
                                 "position": "custom",
-                                "x": 540,
-                                "y": 1600
+                                "x": width // 2,  # Center horizontally
+                                "y": height - 180  # Position near bottom with offset
                             },
                             "language": "en"
                         }
@@ -234,12 +246,13 @@ async def check_video_status(project_id: str, max_wait_time: int = 600) -> Optio
         return None
 
 
-async def add_captions_to_video(final_video_url: str) -> str:
+async def add_captions_to_video(final_video_url: str, aspect_ratio: str = "9:16") -> str:
     """
     Complete workflow to add captions to a video.
     
     Args:
         final_video_url: The final composed video URL
+        aspect_ratio: Video aspect ratio (e.g., "9:16", "16:9", "1:1", "3:4", "4:3")
         
     Returns:
         Captioned video URL if successful, original URL if failed
@@ -255,7 +268,7 @@ async def add_captions_to_video(final_video_url: str) -> str:
         
         # Step 1: Create caption job
         logger.info("CAPTIONS: Step 1 - Creating caption job...")
-        project_id = await create_video_with_captions(final_video_url)
+        project_id = await create_video_with_captions(final_video_url, aspect_ratio)
         if not project_id:
             logger.error("CAPTIONS: Failed to create caption job, returning original video")
             return final_video_url
