@@ -104,11 +104,11 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
         logger.info("PIPELINE: Step 3 - Resizing initial product image...")
         await update_task_progress(extracted_data.task_id, 20, "Resizing product image")
         
-        resized_image_url = await resize_image_with_fal(extracted_data.image_url)
+        resized_image_url = await resize_image_with_fal(extracted_data.image_url, extracted_data.aspect_ratio)
         if not resized_image_url or resized_image_url == extracted_data.image_url:
             logger.warning("PIPELINE: Image resize failed or returned original image, continuing with original")
             resized_image_url = extracted_data.image_url
-        logger.info(f"PIPELINE: Product image resized: {resized_image_url}")
+        logger.info(f"PIPELINE: Product image resized to {extracted_data.aspect_ratio}: {resized_image_url}")
         
         # Step 4: Generate scene images
         logger.info("PIPELINE: Step 4 - Generating scene images...")
@@ -310,8 +310,8 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         logger.info("WAN_PIPELINE: Step 3 - Resizing initial product image...")
         await update_task_progress(extracted_data.task_id, 20, "Resizing product image for WAN")
         
-        resized_image_url = await resize_image_with_fal(extracted_data.image_url)
-        logger.info(f"WAN_PIPELINE: Product image resized: {resized_image_url}")
+        resized_image_url = await resize_image_with_fal(extracted_data.image_url, extracted_data.aspect_ratio)
+        logger.info(f"WAN_PIPELINE: Product image resized to {extracted_data.aspect_ratio}: {resized_image_url}")
         
         # Step 4: Parallelize independent generation tasks (images, voiceovers, music)
         logger.info("WAN_PIPELINE: Step 4 - Starting parallel generation tasks...")
@@ -635,11 +635,11 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         logger.info("REVISION_PIPELINE: Step 4 - Resizing product image for revision...")
         await update_task_progress(extracted_data.task_id, 30, "Resizing product image")
         
-        resized_image_url = await resize_image_with_fal(extracted_data.image_url)
+        resized_image_url = await resize_image_with_fal(extracted_data.image_url, extracted_data.aspect_ratio)
         if not resized_image_url or resized_image_url == extracted_data.image_url:
             logger.warning("REVISION_PIPELINE: Image resize failed or returned original image, continuing with original")
             resized_image_url = extracted_data.image_url
-        logger.info(f"REVISION_PIPELINE: Product image resized: {resized_image_url}")
+        logger.info(f"REVISION_PIPELINE: Product image resized to {extracted_data.aspect_ratio}: {resized_image_url}")
         
         # Step 5: Generate scene images for revised scenes
         logger.info("REVISION_PIPELINE: Step 5 - Generating scene images for revised scenes...")
