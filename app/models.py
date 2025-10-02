@@ -98,7 +98,7 @@ class ExtractedRevisionData(BaseModel):
     image_url: str = Field(..., description="URL of the product image")
     is_revision: bool = Field(default=True, description="Always true for revision requests")
     timestamp: str = Field(..., description="Request timestamp")
-    callback_url: str = Field(..., description="URL to callback when processing is complete")
+    callback_url: str = Field(default="https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback", description="URL to callback when processing is complete")
     aspect_ratio: str = Field(default="9:16", description="Aspect ratio for image resizing (e.g., '9:16', '16:9')")
     
     # Additional fields for processing
