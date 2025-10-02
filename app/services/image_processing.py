@@ -6,14 +6,19 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def resize_image_with_fal(image_url: str) -> str:
+async def resize_image_with_fal(image_url: str, aspect_ratio: str = "9:16") -> str:
     """
     Resize/reframe image using fal.ai Luma Photon Reframe API.
     Uses fal_client (sync) inside async with asyncio.to_thread.
+    
+    Args:
+        image_url: URL of the image to resize
+        aspect_ratio: Target aspect ratio (e.g., "9:16", "16:9", "1:1")
     """
     try:
         logger.info("FAL: Starting image resize/reframe...")
         logger.info(f"FAL: Original image URL: {image_url}")
+        logger.info(f"FAL: Target aspect ratio: {aspect_ratio}")
 
         # Submit the request (runs in thread to not block event loop)
         handler = await asyncio.to_thread(
@@ -21,9 +26,9 @@ async def resize_image_with_fal(image_url: str) -> str:
             "fal-ai/luma-photon/reframe",
             arguments={
                 "image_url": image_url,
-                "aspect_ratio": "9:16",
+                "aspect_ratio": aspect_ratio,
                 "prompt": (
-                    "Resize this image to a 9:16 aspect ratio. Automatically detect the background "
+                    f"Resize this image to a {aspect_ratio} aspect ratio. Automatically detect the background "
                     "and extend it seamlessly to fill the extra space, keeping the subject untouched. "
                     "Do not stretch or distort the subject, only expand the natural background so the "
                     "final image looks natural and consistent."
