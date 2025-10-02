@@ -193,8 +193,7 @@ class WebhookHandler:
                 ("video_id", extracted.video_id),
                 ("parent_video_id", extracted.parent_video_id),
                 ("revision_request", extracted.revision_request),
-                ("user_email", extracted.user_email),
-                ("callback_url", extracted.callback_url)
+                ("user_email", extracted.user_email)
             ]
             
             missing_fields = [name for name, value in required_fields if not value]
