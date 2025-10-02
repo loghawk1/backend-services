@@ -145,20 +145,25 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
         for i, scene in enumerate(wan_scenes):
             try:
                 # Extract voiceover data from scene
-                elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
-                emotion = scene.get("eleven_labs_emotion", "")
-                voice_id = scene.get("eleven_labs_voice_id", "")
+                logger.info(f"WAN: === Processing Scene {i+1} ===")
+                logger.info(f"WAN: Full scene data: {scene}")
                 
-                # Extract only the speech text from elevenlabs_prompt, removing "Settings: ..." part
+                elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
+                eleven_labs_emotion = scene.get("eleven_labs_emotion", "")
+                eleven_labs_voice_id = scene.get("eleven_labs_voice_id", "")
+                
+                logger.info(f"WAN: Scene {i+1} extracted elevenlabs_prompt: '{elevenlabs_prompt}'")
+                logger.info(f"WAN: Scene {i+1} extracted eleven_labs_emotion: '{eleven_labs_emotion}'")
+                logger.info(f"WAN: Scene {i+1} extracted eleven_labs_voice_id: '{eleven_labs_voice_id}'")
+                
                 if not elevenlabs_prompt or not elevenlabs_prompt.strip():
                     logger.warning(f"WAN: Empty elevenlabs_prompt for scene {i+1}")
                     handlers.append(None)
                     continue
 
-                # Extract speech text by removing "Settings: ..." portion
+                # Use the elevenlabs_prompt as speech text directly
                 voiceover_text = elevenlabs_prompt.strip()
                 
-                # Use the full prompt as speech text (settings have been removed from GPT-4)
                 logger.info(f"WAN: Using speech text for scene {i+1}: '{voiceover_text}'")
                 
                 # Validate that we have actual speech text after extraction
@@ -184,11 +189,11 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
                 }
                 
                 # Add voice_id if provided, otherwise use default
-                voice_setting["voice_id"] = voice_id if voice_id and voice_id.strip() else "female_01"
+                voice_setting["voice_id"] = eleven_labs_voice_id if eleven_labs_voice_id and eleven_labs_voice_id.strip() else "Friendly_Person"
                 
                 # Add emotion if provided
-                if emotion and emotion.strip():
-                    voice_setting["emotion"] = emotion
+                if eleven_labs_emotion and eleven_labs_emotion.strip():
+                    voice_setting["emotion"] = eleven_labs_emotion
                 
                 logger.info(f"WAN: Scene {i+1} voice_setting: {voice_setting}")
 
@@ -320,7 +325,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
-                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.Short sfx, melody background music, loud sfx",
+                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces. Short sfx, melody background music, loud sfx",
                         "enable_prompt_expansion": True
                     }
                 )
