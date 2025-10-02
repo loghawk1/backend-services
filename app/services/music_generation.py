@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import List, Dict
 import fal_client
+from fal_client import FalClientError
 
 logger = logging.getLogger(__name__)
 
@@ -30,35 +31,57 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
         logger.info(f"FAL: Combined music prompt: {prompt}")
         logger.info(f"FAL: Prompt length: {len(prompt)} characters")
         
-        # Submit music generation request using Google's Lyria 2
-        logger.info("FAL: Submitting music generation request to Lyria 2...")
-        logger.info(f"FAL: Using prompt: {prompt}")
+        # Retry logic for music generation (up to 3 retries for 422 errors)
+        max_retries = 3
+        retry_delay = 5  # seconds
         
-        # Add timeout wrapper for music generation
-        try:
-            handler = await asyncio.to_thread(
-                fal_client.submit,
-                "fal-ai/lyria2",
-                arguments={
-                    "prompt": prompt,
-                    "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words"
-                }
-            )
-            
-            logger.info("FAL: Waiting for music generation result (this may take 10-15 minutes)...")
-            
-            # Add timeout for the result waiting
-            result = await asyncio.wait_for(
-                asyncio.to_thread(handler.get),
-                timeout=900  # 15 minutes timeout for music generation
-            )
-            
-        except asyncio.TimeoutError:
-            logger.error("FAL: Music generation timed out after 15 minutes")
-            return ""
-        except Exception as e:
-            logger.error(f"FAL: Music generation request failed: {e}")
-            return ""
+        for attempt in range(max_retries + 1):  # 0, 1, 2, 3 (1 initial + 3 retries)
+            try:
+                if attempt > 0:
+                    logger.info(f"FAL: Retry attempt {attempt}/{max_retries} for music generation...")
+                else:
+                    logger.info("FAL: Submitting music generation request to Lyria 2...")
+                
+                logger.info(f"FAL: Using prompt: {prompt}")
+                
+                # Submit music generation request using Google's Lyria 2
+                handler = await asyncio.to_thread(
+                    fal_client.submit,
+                    "fal-ai/lyria2",
+                    arguments={
+                        "prompt": prompt,
+                        "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words"
+                    }
+                )
+                
+                logger.info("FAL: Waiting for music generation result (this may take 10-15 minutes)...")
+                
+                # Add timeout for the result waiting
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(handler.get),
+                    timeout=900  # 15 minutes timeout for music generation
+                )
+                
+                # If we get here, the request succeeded
+                break
+                
+            except FalClientError as e:
+                logger.error(f"FAL: Music generation request failed with FalClientError (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                
+                if attempt < max_retries:
+                    logger.info(f"FAL: Retrying music generation in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error("FAL: All retry attempts exhausted for music generation")
+                    return ""
+                    
+            except asyncio.TimeoutError:
+                logger.error("FAL: Music generation timed out after 15 minutes")
+                return ""
+            except Exception as e:
+                logger.error(f"FAL: Music generation request failed with unexpected error: {e}")
+                return ""
         
         # Extract music URL from result
         if result and "audio" in result and "url" in result["audio"]:
@@ -89,34 +112,55 @@ async def generate_wan_background_music_with_fal(music_prompt: str) -> str:
         
         logger.info(f"WAN_MUSIC: Using music prompt: {music_prompt}")
         
-        # Submit music generation request using Google's Lyria 2
-        logger.info("WAN_MUSIC: Submitting music generation request to Lyria 2...")
+        # Retry logic for WAN music generation (up to 3 retries for 422 errors)
+        max_retries = 3
+        retry_delay = 5  # seconds
         
-        # Add timeout wrapper for music generation
-        try:
-            handler = await asyncio.to_thread(
-                fal_client.submit,
-                "fal-ai/lyria2",
-                arguments={
-                    "prompt": music_prompt,
-                    "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words, violence, adult themes, negativity"
-                }
-            )
-            
-            logger.info("WAN_MUSIC: Waiting for music generation result (this may take 10-15 minutes)...")
-            
-            # Add timeout for the result waiting
-            result = await asyncio.wait_for(
-                asyncio.to_thread(handler.get),
-                timeout=900  # 15 minutes timeout for music generation
-            )
-            
-        except asyncio.TimeoutError:
-            logger.error("WAN_MUSIC: Music generation timed out after 15 minutes")
-            return ""
-        except Exception as e:
-            logger.error(f"WAN_MUSIC: Music generation request failed: {e}")
-            return ""
+        for attempt in range(max_retries + 1):  # 0, 1, 2, 3 (1 initial + 3 retries)
+            try:
+                if attempt > 0:
+                    logger.info(f"WAN_MUSIC: Retry attempt {attempt}/{max_retries} for WAN music generation...")
+                else:
+                    logger.info("WAN_MUSIC: Submitting music generation request to Lyria 2...")
+                
+                # Submit music generation request using Google's Lyria 2
+                handler = await asyncio.to_thread(
+                    fal_client.submit,
+                    "fal-ai/lyria2",
+                    arguments={
+                        "prompt": music_prompt,
+                        "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words, violence, adult themes, negativity"
+                    }
+                )
+                
+                logger.info("WAN_MUSIC: Waiting for music generation result (this may take 10-15 minutes)...")
+                
+                # Add timeout for the result waiting
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(handler.get),
+                    timeout=900  # 15 minutes timeout for music generation
+                )
+                
+                # If we get here, the request succeeded
+                break
+                
+            except FalClientError as e:
+                logger.error(f"WAN_MUSIC: Music generation request failed with FalClientError (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                
+                if attempt < max_retries:
+                    logger.info(f"WAN_MUSIC: Retrying music generation in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error("WAN_MUSIC: All retry attempts exhausted for music generation")
+                    return ""
+                    
+            except asyncio.TimeoutError:
+                logger.error("WAN_MUSIC: Music generation timed out after 15 minutes")
+                return ""
+            except Exception as e:
+                logger.error(f"WAN_MUSIC: Music generation request failed with unexpected error: {e}")
+                return ""
         
         # Extract music URL from result
         if result and "audio" in result and "url" in result["audio"]:
