@@ -321,7 +321,6 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         nano_banana_prompts = [scene.get("nano_banana_prompt", "") for scene in wan_scenes]
         
         # Extract elevenlabs_prompts from WAN scenes
-        elevenlabs_prompts = [scene.get("elevenlabs_prompt", "") for scene in wan_scenes]
         
         # Create parallel tasks for independent generation steps
         logger.info("WAN_PIPELINE: Creating parallel tasks for images, voiceovers, and music...")
@@ -332,9 +331,9 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         )
         logger.info("WAN_PIPELINE: Created image generation task")
         
-        # Task 2: Generate WAN voiceovers
+        # Task 2: Generate WAN voiceovers (pass full scenes for emotion/voice_id support)
         voiceover_task = asyncio.create_task(
-            generate_wan_voiceovers_with_fal(elevenlabs_prompts)
+            generate_wan_voiceovers_with_fal(wan_scenes)
         )
         logger.info("WAN_PIPELINE: Created voiceover generation task")
         
