@@ -54,6 +54,7 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
 
 
 async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, user_id: str) -> bool:
+async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, user_id: str) -> bool:
     """Store WAN generated scenes in Supabase database - creates 6 rows with WAN-specific mapping"""
     try:
         logger.info(f"DATABASE: Storing {len(wan_scenes)} WAN scenes in Supabase for video: {video_id}")
@@ -72,7 +73,7 @@ async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, us
                 "visual_description": scene.get("wan2_5_prompt", "")[:1000],  # Map wan2_5_prompt to visual_description
                 "vioce_over": scene.get("elevenlabs_prompt", "")[:1000],  # Map elevenlabs_prompt to vioce_over
                 "sound_effects": "",  # WAN workflow doesn't use separate sound effects
-                "music_direction": "",  # WAN workflow doesn't use separate music direction
+                "music_direction": "",  # WAN workflow doesn't use separate music direction per scene
                 "image_url": None,  # Will be updated later when scene images are generated
                 "voiceover_url": None,  # Will be updated later when voiceovers are generated
                 "scene_clip_url": None,  # Will be updated later when videos are generated
@@ -99,6 +100,36 @@ async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, us
         return False
 
 
+async def store_wan_music_prompt_in_supabase(music_prompt: str, video_id: str, user_id: str) -> bool:
+    """Store WAN music prompt in the music table (separate from individual scenes)"""
+    try:
+        logger.info(f"DATABASE: Storing WAN music prompt for video: {video_id}")
+        logger.info(f"DATABASE: Music prompt: {music_prompt[:100]}...")
+        
+        supabase = get_supabase_client()
+        
+        # Store the music prompt as a placeholder in the music table
+        # This will be replaced with the actual generated music URL later
+        music_record = {
+            "user_id": user_id,
+            "video_id": video_id,
+            "music_url": f"PROMPT:{music_prompt}",  # Temporary placeholder with prompt
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        result = supabase.table("music").insert(music_record).execute()
+        
+        if result.data:
+            logger.info(f"DATABASE: WAN music prompt stored successfully with ID: {result.data[0].get('id')}")
+            return True
+        else:
+            logger.error("DATABASE: Failed to store WAN music prompt")
+            return False
+            
+    except Exception as e:
+        logger.error(f"DATABASE: Failed to store WAN music prompt: {e}")
+        logger.exception("Full traceback:")
+        return False
 async def update_scenes_with_image_urls(scene_image_urls: List[str], video_id: str, user_id: str) -> bool:
     """Update the scene rows with their generated image URLs (supports both 5 and 6 scenes)"""
     try:
