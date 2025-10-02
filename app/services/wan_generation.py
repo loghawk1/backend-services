@@ -182,7 +182,7 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
 
                 # Build voice_setting with emotion and voice_id support
                 voice_setting = {
-                    "speed": 1.1,  # Slightly faster for UGC feel
+                    "speed": 1.2,  # Slightly faster for UGC feel
                     "vol": 1,
                     "pitch": 0,
                     "english_normalization": False
