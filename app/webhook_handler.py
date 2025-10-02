@@ -233,7 +233,7 @@ class WebhookHandler:
                 "user_name": body.get("user_name"),
                 "model": body.get("model", "wan"),
                 "request_timestamp": body.get("request_timestamp"),
-                "source": body.get("source"),
+                "source": body.get("source") or "web_app",  # Ensure non-None value
                 "version": body.get("version"),
                 "idempotency_key": body.get("idempotency_key"),
                 "callback_url": body.get("callback_url"),
@@ -244,9 +244,14 @@ class WebhookHandler:
             }
             
             # Filter out None values for optional fields (keep required fields even if None for Pydantic validation)
-            filtered_data = {k: v for k, v in wan_data_for_model.items() if v is not None or k in [
-                "prompt", "image_url", "video_id", "user_id", "user_email", "source"
-            ]}
+            # But ensure source always has a value
+            filtered_data = {}
+            for k, v in wan_data_for_model.items():
+                if k == "source":
+                    # Always include source with a default value
+                    filtered_data[k] = v or "web_app"
+                elif v is not None or k in ["prompt", "image_url", "video_id", "user_id", "user_email"]:
+                    filtered_data[k] = v
             
             logger.info(f"EXTRACT: Filtered WAN data keys: {list(filtered_data.keys())}")
             logger.info(f"EXTRACT: Image URL present: {'image_url' in filtered_data and filtered_data['image_url']}")
