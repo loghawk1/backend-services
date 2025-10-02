@@ -54,7 +54,6 @@ async def store_scenes_in_supabase(scenes: List[Dict], video_id: str, user_id: s
 
 
 async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, user_id: str) -> bool:
-async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, user_id: str) -> bool:
     """Store WAN generated scenes in Supabase database - creates 6 rows with WAN-specific mapping"""
     try:
         logger.info(f"DATABASE: Storing {len(wan_scenes)} WAN scenes in Supabase for video: {video_id}")
