@@ -27,6 +27,13 @@ async def generate_revised_wan_scenes_with_gpt4(
         logger.info(f"WAN_REVISION_AI: Revision request: {revision_request[:100]}...")
         logger.info(f"WAN_REVISION_AI: Processing {len(original_scenes)} original WAN scenes")
 
+        # Check if revision request mentions missing music
+        revision_lower = revision_request.lower()
+        music_missing_keywords = ["no music", "no background music", "missing music", "add music", "needs music", "without music", "no sound", "silent"]
+        mentions_missing_music = any(keyword in revision_lower for keyword in music_missing_keywords)
+        
+        if mentions_missing_music:
+            logger.info("WAN_REVISION_AI: User mentions missing music - will trigger music generation")
         # Prepare original WAN scenes data for GPT-4 (map database fields back to WAN format)
         wan_scenes_for_ai = []
         for scene in original_scenes:
@@ -45,6 +52,11 @@ CRITICAL WAN DATABASE FIELD MAPPING:
 - nano_banana_prompt: Image generation prompt for Nano Banana (stored as image_prompt in DB)
 - elevenlabs_prompt: Voice generation prompt for ElevenLabs (stored as vioce_over in DB)
 - wan2_5_prompt: Video animation prompt for WAN 2.5 (stored as visual_description in DB)
+
+MUSIC HANDLING INTELLIGENCE:
+- If user mentions "no music", "missing music", "add music", "needs music", "without music", "no sound", "silent" → AUTOMATICALLY generate new background music
+- Music generation uses a default prompt: "Lo-fi hip-hop with a light upbeat rhythm, soft percussion, and a steady background flow. Casual and positive, perfect for maintaining a smooth ad vibe across all scenes, ending gently at the final call-to-action."
+- This is handled OUTSIDE of scene-level prompts (music is video-wide, not scene-specific)
 
 WAN REVISION ANALYSIS PROTOCOL:
 
@@ -206,7 +218,8 @@ INSTRUCTIONS:
             nano_prompt = scene.get('image_prompt', '')[:50] + "..."
             logger.info(f"WAN_REVISION_AI: Revised WAN Scene {i}: {nano_prompt}")
 
-        return database_format_scenes
+        # Return both scenes and music generation flag
+        return database_format_scenes, mentions_missing_music
 
     except json.JSONDecodeError as e:
         logger.error(f"WAN_REVISION_AI: JSON parsing failed: {e}")
