@@ -71,7 +71,7 @@ class ExtractedWanData(BaseModel):
     version: str = Field(..., description="API version")
     idempotency_key: str = Field(..., description="Idempotency key for duplicate detection")
     callback_url: str = Field(..., description="URL to callback when processing is complete")
-    webhook_url: str = Field(..., description="Original webhook URL")
+    webhook_url: str = Field(default="", description="Original webhook URL")
     execution_mode: str = Field(..., description="Execution mode (production/development)")
     aspect_ratio: str = Field(default="9:16", description="Aspect ratio for image resizing (e.g., '9:16', '16:9')")
     
