@@ -731,8 +731,14 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         else:
             # Generate new music if parent doesn't have any
             logger.info("REVISION_PIPELINE: No existing music found, generating new background music...")
-            music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
-            raw_music_url = await generate_background_music_with_fal(music_prompts)
+            # For WAN revisions, we don't have music_direction field, so use a default
+            if workflow_type == "wan":
+                from .services.music_generation import generate_wan_background_music_with_fal
+                default_music_prompt = "Lo-fi hip hop with calm steady beat"
+                raw_music_url = await generate_wan_background_music_with_fal(default_music_prompt)
+            else:
+                music_prompts = [scene.get("music_direction", "") for scene in revised_scenes]
+                raw_music_url = await generate_background_music_with_fal(music_prompts)
             
             if raw_music_url:
                 # Normalize music volume
