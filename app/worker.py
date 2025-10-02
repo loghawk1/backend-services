@@ -587,11 +587,13 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             logger.info("REVISION_PIPELINE: Step 2 - Generating revised WAN scenes with GPT-4...")
             await update_task_progress(extracted_data.task_id, 20, "Generating revised WAN scenes with GPT-4")
             
-            revised_scenes = await generate_revised_wan_scenes_with_gpt4(
+            revised_scenes, should_generate_music = await generate_revised_wan_scenes_with_gpt4(
                 extracted_data.revision_request,
                 original_scenes,
                 openai_client
             )
+            
+            logger.info(f"REVISION_PIPELINE: Should generate new music: {should_generate_music}")
         else:
             logger.info("REVISION_PIPELINE: Step 2 - Generating revised regular scenes with GPT-4...")
             await update_task_progress(extracted_data.task_id, 20, "Generating revised scenes with GPT-4")
@@ -601,6 +603,12 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
                 original_scenes,
                 openai_client
             )
+            
+            # For regular workflow, check if user mentions missing music
+            revision_lower = extracted_data.revision_request.lower()
+            music_missing_keywords = ["no music", "no background music", "missing music", "add music", "needs music", "without music", "no sound", "silent"]
+            should_generate_music = any(keyword in revision_lower for keyword in music_missing_keywords)
+            logger.info(f"REVISION_PIPELINE: Should generate new music (regular): {should_generate_music}")
         
         if not revised_scenes or len(revised_scenes) != expected_scene_count:
             error_msg = f"Failed to generate revised scenes - got {len(revised_scenes) if revised_scenes else 0} instead of {expected_scene_count}"
@@ -724,20 +732,24 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         logger.info("REVISION_PIPELINE: Step 8 - Getting background music...")
         await update_task_progress(extracted_data.task_id, 75, "Getting background music")
         
-        # Try to get existing music from parent video
+        # Try to get existing music from parent video (unless user specifically mentions missing music)
         existing_music = await get_music_for_video(extracted_data.parent_video_id, extracted_data.user_id)
         normalized_music_url = ""
         
-        if existing_music and existing_music.get("music_url"):
+        if existing_music and existing_music.get("music_url") and not should_generate_music:
             # Reuse existing music from parent video
             normalized_music_url = existing_music["music_url"]
-            logger.info(f"REVISION_PIPELINE: Reusing music from parent video: {normalized_music_url}")
+            logger.info(f"REVISION_PIPELINE: Reusing music from parent video: {normalized_music_url[:100]}...")
             
             # Store music for revision video
             await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
         else:
-            # Generate new music if parent doesn't have any
-            logger.info("REVISION_PIPELINE: No existing music found, generating new background music...")
+            # Generate new music if parent doesn't have any OR user specifically mentioned missing music
+            if should_generate_music:
+                logger.info("REVISION_PIPELINE: User mentioned missing music - generating new background music...")
+            else:
+                logger.info("REVISION_PIPELINE: No existing music found, generating new background music...")
+                
             # For WAN revisions, we don't have music_direction field, so use a default
             if workflow_type == "wan":
                 from .services.music_generation import generate_wan_background_music_with_fal
@@ -754,6 +766,8 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
                 
                 # Store music in database
                 await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
+            else:
+                logger.warning("REVISION_PIPELINE: Failed to generate new background music - proceeding without music")
         
         # Step 9: Compose final revision video with all audio tracks
         logger.info("REVISION_PIPELINE: Step 9 - Composing final revision video with audio...")
