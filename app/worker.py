@@ -818,7 +818,8 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
                 logger.info(f"REVISION_PIPELINE: Reusing original video for scene {scene_change['scene_number']}")
         
         # Validate we have enough successful videos
-        successful_videos = len([url for url in final_video_urls if url])
+        from .services.revision_ai import compare_scenes_for_changes
+        scene_changes = await compare_scenes_for_changes(original_scenes, revised_scenes)
         min_required_videos = 4 if workflow_type == "wan" else 3
         if successful_videos < min_required_videos:
             error_msg = f"Failed to get enough scene videos - got {successful_videos} successful (need at least {min_required_videos} out of {expected_scene_count})"
