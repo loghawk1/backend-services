@@ -454,12 +454,13 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         logger.info(f"WAN_PIPELINE: Step 1 - Passing {len(video_urls)} video URLs and {len(voiceover_urls)} voiceover URLs")
         logger.info(f"WAN_PIPELINE: Video URLs: {video_urls}")
         logger.info(f"WAN_PIPELINE: Voiceover URLs: {voiceover_urls}")
+        logger.info(f"WAN_PIPELINE: Using aspect ratio: {extracted_data.aspect_ratio}")
         
         # Import the new JSON2Video functions
         from .services.json2video_composition import compose_wan_videos_and_voiceovers_with_json2video, compose_final_video_with_music_json2video
         
         # Step 1: Compose videos + voiceovers
-        composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls)
+        composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls, extracted_data.aspect_ratio)
         
         if not composed_video_url:
             error_msg = "Failed to compose WAN videos + voiceovers (Step 1) - no video URL returned"
@@ -478,7 +479,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         final_video_url = ""
         if normalized_music_url:
             # Step 2: Add background music to composed video
-            final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url)
+            final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url, extracted_data.aspect_ratio)
         
         if not final_video_url:
             # Fallback to composed video without music if Step 2 fails
@@ -491,7 +492,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         logger.info("WAN_PIPELINE: Step 8 - Adding captions to final WAN video...")
         await update_task_progress(extracted_data.task_id, 90, "Adding captions to final WAN video")
         
-        captioned_video_url = await add_captions_to_video(final_video_url)
+        captioned_video_url = await add_captions_to_video(final_video_url, extracted_data.aspect_ratio)
         
         # Step 9: Send final WAN video to frontend
         logger.info("WAN_PIPELINE: Step 9 - Sending final WAN video to frontend...")
@@ -751,7 +752,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             from .services.json2video_composition import compose_wan_videos_and_voiceovers_with_json2video, compose_final_video_with_music_json2video
             
             # Step 1: Compose videos + voiceovers
-            composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls)
+            composed_video_url = await compose_wan_videos_and_voiceovers_with_json2video(video_urls, voiceover_urls, extracted_data.aspect_ratio)
             
             if not composed_video_url:
                 error_msg = "Failed to compose final WAN revision video - no video URL returned"
@@ -762,7 +763,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             # Step 2: Add background music if available
             final_video_url = composed_video_url
             if normalized_music_url:
-                final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url)
+                final_video_url = await compose_final_video_with_music_json2video(composed_video_url, normalized_music_url, extracted_data.aspect_ratio)
                 if not final_video_url:
                     final_video_url = composed_video_url  # Fallback to video without music
         else:
@@ -790,7 +791,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         logger.info("REVISION_PIPELINE: Step 10 - Adding captions to final revision video...")
         await update_task_progress(extracted_data.task_id, 95, "Adding captions to final revision video")
         
-        captioned_video_url = await add_captions_to_video(final_video_url)
+        captioned_video_url = await add_captions_to_video(final_video_url, extracted_data.aspect_ratio)
         
         # Step 11: Send final revision video to frontend
         logger.info("REVISION_PIPELINE: Step 11 - Sending final revision video to frontend...")
