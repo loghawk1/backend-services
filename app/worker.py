@@ -26,6 +26,7 @@ from .services.music_generation import generate_background_music_with_fal, norma
 from .services.final_composition import compose_final_video_with_audio, compose_wan_final_video_with_audio
 from .services.caption_generation import add_captions_to_video
 from .services.callback_service import send_video_callback, send_error_callback
+from .services.revision_ai import compare_scenes_for_changes
 from .services.database_operations import (
     store_scenes_in_supabase, store_wan_scenes_in_supabase,
     update_scenes_with_image_urls, update_scenes_with_video_urls, update_scenes_with_voiceover_urls,
@@ -618,6 +619,23 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         
         logger.info(f"REVISION_PIPELINE: Generated {len(revised_scenes)} revised scenes")
         
+        # Step 2.5: Compare scenes to determine what needs regeneration
+        logger.info("REVISION_PIPELINE: Step 2.5 - Comparing scenes for granular regeneration...")
+        await update_task_progress(extracted_data.task_id, 35, "Comparing original vs revised scenes")
+        
+        # Compare scenes to determine what needs regeneration (works for both WAN and regular)
+        scene_changes = compare_scenes_for_changes(original_scenes, revised_scenes)
+        
+        # Log comparison results
+        total_images_to_regen = sum(1 for sc in scene_changes if sc["image_needs_regen"])
+        total_voiceovers_to_regen = sum(1 for sc in scene_changes if sc["voiceover_needs_regen"])
+        total_videos_to_regen = sum(1 for sc in scene_changes if sc["video_needs_regen"])
+        
+        logger.info(f"REVISION_PIPELINE: Granular regeneration analysis:")
+        logger.info(f"REVISION_PIPELINE: - Images: {total_images_to_regen}/{len(scene_changes)} scenes")
+        logger.info(f"REVISION_PIPELINE: - Voiceovers: {total_voiceovers_to_regen}/{len(scene_changes)} scenes")
+        logger.info(f"REVISION_PIPELINE: - Videos: {total_videos_to_regen}/{len(scene_changes)} scenes")
+        
         # Step 3: Store revised scenes in database (create new scenes for revision video_id)
         logger.info("REVISION_PIPELINE: Step 3 - Storing revised scenes in database...")
         await update_task_progress(extracted_data.task_id, 25, "Storing revised scenes in database")
@@ -818,8 +836,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
                 logger.info(f"REVISION_PIPELINE: Reusing original video for scene {scene_change['scene_number']}")
         
         # Validate we have enough successful videos
-        from .services.revision_ai import compare_scenes_for_changes
-        scene_changes = await compare_scenes_for_changes(original_scenes, revised_scenes)
+        successful_videos = len([url for url in final_video_urls if url])
         min_required_videos = 4 if workflow_type == "wan" else 3
         if successful_videos < min_required_videos:
             error_msg = f"Failed to get enough scene videos - got {successful_videos} successful (need at least {min_required_videos} out of {expected_scene_count})"
