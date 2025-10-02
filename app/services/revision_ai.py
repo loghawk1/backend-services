@@ -6,6 +6,106 @@ from openai import AsyncOpenAI
 logger = logging.getLogger(__name__)
 
 
+async def compare_scenes_for_changes(original_scenes: List[Dict], revised_scenes: List[Dict]) -> List[Dict]:
+    """
+    Compare original and revised scenes to determine which assets need regeneration
+    
+    Args:
+        original_scenes: List of original scene dictionaries from database
+        revised_scenes: List of revised scene dictionaries from GPT-4
+        
+    Returns:
+        List of scene change dictionaries with regeneration flags and URLs
+    """
+    try:
+        logger.info("REVISION_COMPARE: Starting scene comparison for granular regeneration...")
+        logger.info(f"REVISION_COMPARE: Comparing {len(original_scenes)} original scenes with {len(revised_scenes)} revised scenes")
+        
+        scene_changes = []
+        
+        # Create lookup maps for easier comparison
+        original_map = {scene.get("scene_number", i+1): scene for i, scene in enumerate(original_scenes)}
+        revised_map = {scene.get("scene_number", i+1): scene for i, scene in enumerate(revised_scenes)}
+        
+        # Compare each scene
+        for scene_number in range(1, len(revised_scenes) + 1):
+            original_scene = original_map.get(scene_number, {})
+            revised_scene = revised_map.get(scene_number, {})
+            
+            if not original_scene or not revised_scene:
+                logger.warning(f"REVISION_COMPARE: Missing scene {scene_number} in original or revised data")
+                continue
+            
+            # Extract prompts for comparison
+            original_image_prompt = original_scene.get("image_prompt", "").strip()
+            revised_image_prompt = revised_scene.get("image_prompt", "").strip()
+            
+            original_voiceover_prompt = original_scene.get("vioce_over", "").strip()
+            revised_voiceover_prompt = revised_scene.get("vioce_over", "").strip()
+            
+            original_video_prompt = original_scene.get("visual_description", "").strip()
+            revised_video_prompt = revised_scene.get("visual_description", "").strip()
+            
+            # Determine what needs regeneration
+            image_needs_regen = original_image_prompt != revised_image_prompt
+            voiceover_needs_regen = original_voiceover_prompt != revised_voiceover_prompt
+            
+            # Video needs regeneration if either the video prompt OR the image prompt changed
+            # (since video is generated from the image)
+            video_needs_regen = (original_video_prompt != revised_video_prompt) or image_needs_regen
+            
+            # Get original asset URLs
+            original_image_url = original_scene.get("image_url", "")
+            original_voiceover_url = original_scene.get("voiceover_url", "")
+            original_video_url = original_scene.get("scene_clip_url", "")
+            
+            scene_change = {
+                "scene_number": scene_number,
+                "image_needs_regen": image_needs_regen,
+                "voiceover_needs_regen": voiceover_needs_regen,
+                "video_needs_regen": video_needs_regen,
+                "original_image_url": original_image_url,
+                "original_voiceover_url": original_voiceover_url,
+                "original_video_url": original_video_url,
+                "revised_image_prompt": revised_image_prompt,
+                "revised_voiceover_prompt": revised_voiceover_prompt,
+                "revised_video_prompt": revised_video_prompt
+            }
+            
+            scene_changes.append(scene_change)
+            
+            # Log what needs regeneration for this scene
+            regen_items = []
+            if image_needs_regen:
+                regen_items.append("image")
+            if voiceover_needs_regen:
+                regen_items.append("voiceover")
+            if video_needs_regen:
+                regen_items.append("video")
+            
+            if regen_items:
+                logger.info(f"REVISION_COMPARE: Scene {scene_number} needs regeneration: {', '.join(regen_items)}")
+            else:
+                logger.info(f"REVISION_COMPARE: Scene {scene_number} unchanged - reusing all assets")
+        
+        # Summary statistics
+        total_images_to_regen = sum(1 for sc in scene_changes if sc["image_needs_regen"])
+        total_voiceovers_to_regen = sum(1 for sc in scene_changes if sc["voiceover_needs_regen"])
+        total_videos_to_regen = sum(1 for sc in scene_changes if sc["video_needs_regen"])
+        
+        logger.info(f"REVISION_COMPARE: Regeneration summary:")
+        logger.info(f"REVISION_COMPARE: - Images: {total_images_to_regen}/{len(scene_changes)} scenes")
+        logger.info(f"REVISION_COMPARE: - Voiceovers: {total_voiceovers_to_regen}/{len(scene_changes)} scenes")
+        logger.info(f"REVISION_COMPARE: - Videos: {total_videos_to_regen}/{len(scene_changes)} scenes")
+        
+        return scene_changes
+        
+    except Exception as e:
+        logger.error(f"REVISION_COMPARE: Failed to compare scenes: {e}")
+        logger.exception("Full traceback:")
+        return []
+
+
 async def generate_revised_wan_scenes_with_gpt4(
     revision_request: str, 
     original_scenes: List[Dict], 
