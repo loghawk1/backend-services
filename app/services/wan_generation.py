@@ -121,25 +121,34 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
         return []
 
 
-async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> List[str]:
-    """Generate voiceovers using fal.ai MiniMax Speech 2.5 Turbo based on elevenlabs_prompts (using prompts directly as text)"""
+async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
+    """Generate voiceovers using fal.ai MiniMax Speech 2.5 Turbo based on WAN scenes with emotion and voice_id support"""
     try:
-        logger.info(f"WAN: Starting voiceover generation for {len(elevenlabs_prompts)} scenes...")
+        logger.info(f"WAN: Starting voiceover generation for {len(wan_scenes)} scenes...")
         
-        # Debug: Log all input prompts to see what GPT-4 generated
-        for i, prompt in enumerate(elevenlabs_prompts):
-            logger.info(f"WAN: GPT-4 Generated elevenlabs_prompt {i+1}: '{prompt}'")
-            logger.info(f"WAN: Prompt length: {len(prompt)} characters")
+        # Debug: Log all input scenes to see what GPT-4 generated
+        for i, scene in enumerate(wan_scenes):
+            elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
+            emotion = scene.get("eleven_labs_emotion", "")
+            voice_id = scene.get("eleven_labs_voice_id", "")
+            logger.info(f"WAN: Scene {i+1} elevenlabs_prompt: '{elevenlabs_prompt}'")
+            logger.info(f"WAN: Scene {i+1} emotion: '{emotion}'")
+            logger.info(f"WAN: Scene {i+1} voice_id: '{voice_id}'")
         
         # Initialize results list
-        voiceover_urls = [""] * len(elevenlabs_prompts)
+        voiceover_urls = [""] * len(wan_scenes)
         handlers = []
 
         # Phase 1: Submit all voiceover requests concurrently
         logger.info("WAN: Phase 1 - Submitting all voiceover generation requests...")
         
-        for i, elevenlabs_prompt in enumerate(elevenlabs_prompts):
+        for i, scene in enumerate(wan_scenes):
             try:
+                # Extract voiceover data from scene
+                elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
+                emotion = scene.get("eleven_labs_emotion", "")
+                voice_id = scene.get("eleven_labs_voice_id", "")
+                
                 # Extract only the speech text from elevenlabs_prompt, removing "Settings: ..." part
                 if not elevenlabs_prompt or not elevenlabs_prompt.strip():
                     logger.warning(f"WAN: Empty elevenlabs_prompt for scene {i+1}")
@@ -166,19 +175,30 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
                 logger.info(f"WAN: Submitting voiceover request for scene {i+1}...")
                 logger.info(f"WAN: Using extracted speech text: {voiceover_text[:100]}...")
 
+                # Build voice_setting with emotion and voice_id support
+                voice_setting = {
+                    "speed": 1.1,  # Slightly faster for UGC feel
+                    "vol": 1,
+                    "pitch": 0,
+                    "english_normalization": False
+                }
+                
+                # Add voice_id if provided, otherwise use default
+                voice_setting["voice_id"] = voice_id if voice_id and voice_id.strip() else "female_01"
+                
+                # Add emotion if provided
+                if emotion and emotion.strip():
+                    voice_setting["emotion"] = emotion
+                
+                logger.info(f"WAN: Scene {i+1} voice_setting: {voice_setting}")
+
                 # Submit voiceover generation request using MiniMax Speech 2.5 Turbo
                 handler = await asyncio.to_thread(
                     fal_client.submit,
                     "fal-ai/minimax/preview/speech-2.5-turbo",
                     arguments={
                         "text": voiceover_text,  # Use extracted speech text only
-                        "voice_setting": {
-                            "voice_id": "female_01",
-                            "speed": 1.2,  # Slightly faster for UGC feel
-                            "vol": 1,
-                            "pitch": 0,
-                            "english_normalization": False
-                        },
+                        "voice_setting": voice_setting,
                         "output_format": "url"  # Get URL response instead of hex
                     }
                 )
@@ -190,7 +210,7 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
                 logger.error(f"WAN: Failed to submit voiceover request for scene {i+1}: {e}")
                 handlers.append(None)
 
-        logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(elevenlabs_prompts)} voiceover requests")
+        logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(wan_scenes)} voiceover requests")
 
         # Phase 2: Wait for all results concurrently
         logger.info("WAN: Phase 2 - Waiting for all voiceover generation results...")
@@ -249,7 +269,7 @@ async def generate_wan_voiceovers_with_fal(elevenlabs_prompts: List[str]) -> Lis
             # Continue with whatever results we have
 
         successful_voiceovers = len([url for url in voiceover_urls if url])
-        logger.info(f"WAN: Generated {successful_voiceovers} out of {len(elevenlabs_prompts)} voiceovers successfully")
+        logger.info(f"WAN: Generated {successful_voiceovers} out of {len(wan_scenes)} voiceovers successfully")
 
         # Log final results
         for i, url in enumerate(voiceover_urls):
@@ -300,7 +320,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
-                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.",
+                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces.Short sfx, melody background music, loud sfx",
                         "enable_prompt_expansion": True
                     }
                 )
