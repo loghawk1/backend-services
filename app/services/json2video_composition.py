@@ -3,6 +3,7 @@ import logging
 import httpx
 from typing import List, Optional
 from ..config import get_settings
+from .task_utils import get_resolution_from_aspect_ratio
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -10,7 +11,8 @@ settings = get_settings()
 
 async def compose_wan_videos_and_voiceovers_with_json2video(
     scene_clip_urls: List[str], 
-    voiceover_urls: List[str]
+    voiceover_urls: List[str],
+    aspect_ratio: str = "9:16"
 ) -> Optional[str]:
     """
     First step: Compose WAN videos with voiceovers using JSON2Video API (6 scenes)
@@ -40,6 +42,10 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
         if len(valid_scene_clips) < 4:  # Need at least 4 scenes
             logger.error(f"JSON2VIDEO: Not enough valid scene clips: {len(valid_scene_clips)} (need at least 4)")
             return None
+        
+        # Get dynamic resolution based on aspect ratio
+        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
+        logger.info(f"JSON2VIDEO: Using resolution {width}x{height} for aspect ratio {aspect_ratio}")
         
         # Build scenes array for JSON2Video (Step 1: Videos + Voiceovers only)
         scenes = []
@@ -80,9 +86,9 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
         
         # Prepare JSON2Video payload for Step 1
         json_data = {
-            "resolution": "custom", # 9:16 aspect ratio
-            "width": 1080,
-            "height": 1920,  # 9:16 aspect ratio
+            "resolution": "custom",
+            "width": width,
+            "height": height,
             "scenes": scenes
         }
         
@@ -141,7 +147,8 @@ async def compose_wan_videos_and_voiceovers_with_json2video(
 
 async def compose_final_video_with_music_json2video(
     composed_video_url: str,
-    music_url: str
+    music_url: str,
+    aspect_ratio: str = "9:16"
 ) -> Optional[str]:
     """
     Second step: Compose the already composed video (videos + voiceovers) with background music
@@ -166,6 +173,10 @@ async def compose_final_video_with_music_json2video(
             logger.error("JSON2VIDEO: Missing composed video URL or music URL for Step 2")
             return None
         
+        # Get dynamic resolution based on aspect ratio
+        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
+        logger.info(f"JSON2VIDEO: Using resolution {width}x{height} for aspect ratio {aspect_ratio} in Step 2")
+        
         # Build single scene with composed video + background music
         scene_elements = [
             {
@@ -187,9 +198,9 @@ async def compose_final_video_with_music_json2video(
         
         # Prepare JSON2Video payload for Step 2
         json_data = {
-            "resolution": "custom", # 9:16 aspect ratio
-            "width": 1080,
-            "height": 1920,
+            "resolution": "custom",
+            "width": width,
+            "height": height,
             "scenes": [{"elements": scene_elements}]
         }
         
