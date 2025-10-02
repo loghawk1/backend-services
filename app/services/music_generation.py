@@ -31,7 +31,7 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
         logger.info(f"FAL: Prompt length: {len(prompt)} characters")
         
         # Retry logic for music generation (up to 3 retries for 422 errors)
-        max_retries = 2  # Changed from 3 to 2 as requested (try 2 more times)
+        max_retries = 2  # Try 2 more times after initial attempt (total: 3 attempts)
         retry_delay = 5  # seconds
         
         for attempt in range(max_retries + 1):  # 0, 1, 2, 3 (1 initial + 3 retries)
@@ -120,7 +120,7 @@ async def generate_wan_background_music_with_fal(music_prompt: str) -> str:
         logger.info(f"WAN_MUSIC: Using music prompt: {music_prompt}")
         
         # Retry logic for WAN music generation (up to 3 retries for 422 errors)
-        max_retries = 2  # Changed from 3 to 2 as requested (try 2 more times)
+        max_retries = 2  # Try 2 more times after initial attempt (total: 3 attempts)
         retry_delay = 5  # seconds
         
         for attempt in range(max_retries + 1):  # 0, 1, 2, 3 (1 initial + 3 retries)
