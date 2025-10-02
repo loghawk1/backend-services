@@ -215,7 +215,6 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 * ALL FIELDS MUST BE COMPLETE (never empty).
 * EXACTLY **6 scenes** must be generated.
 * Each scene MUST contain:
-
   * `scene_number`
   * `nano_banana_prompt`
   * `elevenlabs_prompt` (spoken line, ≥ 3 words)
@@ -224,9 +223,8 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
   * `wan2_5_prompt`
 * All six scenes MUST use the SAME `eleven_labs_voice_id` unless explicitly overridden.
 * The **final scene** MUST always include:
-
   * Product showcased clearly
-  * Professional Call-to-Action (e.g., “Get Yours Today”)
+  * Professional Call-to-Action (e.g., "Get Yours Today")
   * Fade out transition
 
 ---
@@ -263,9 +261,8 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 ### WAN 2.5 (Video) PROMPTS
 
 * MUST include 4 elements every time:
-
   1. **Action/Animation** (e.g., pan, zoom, handheld, slow motion).
-  2. **At least 1 SFX** (e.g., “whoosh”, “bass hit”, “street ambience”).
+  2. **At least 1 SFX** (e.g., "whoosh", "bass hit", "street ambience").
   3. **Overlay text** that reinforces scene (short, catchy phrase).
   4. **Transition** into the next scene (crossfade, whip pan, zoom out, etc.).
 
@@ -276,7 +273,6 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 * MUST exist and be under **50 characters**.
 * Format: *genre + vibe*.
 * Examples:
-
   * `"Lo-fi hip hop steady beat"`
   * `"Upbeat indie pop groove"`
   * `"Chill electronic synths"`
@@ -319,8 +315,7 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
  ],
  "music_prompt": "concise music under 50 chars"
 }
-
-"""
+```"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -423,22 +418,42 @@ async def wan_scene_generator(prompt: str, openai_client: AsyncOpenAI) -> List[D
 
         # Validate each scene has required fields
         for i, scene in enumerate(wan_scenes):
-            required_fields = ["scene_number", "nano_banana_prompt", "elevenlabs_prompt", "wan2_5_prompt"]
+            required_fields = ["scene_number", "nano_banana_prompt", "elevenlabs_prompt", "eleven_labs_emotion", "eleven_labs_voice_id", "wan2_5_prompt"]
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"WAN_GPT4: Scene {i+1} missing required field: {field}")
                     return [], music_prompt  # Still return music_prompt if extracted
         
-        # Add default voiceover prompts for empty elevenlabs_prompt fields
+        # Add fallback values for missing or empty fields
         for i, scene in enumerate(wan_scenes):
+            # Ensure elevenlabs_prompt is never empty
             if not scene.get("elevenlabs_prompt", "").strip():
-                default_prompt = "A short voiceover for this scene."
-                scene["elevenlabs_prompt"] = default_prompt
-                logger.warning(f"WAN_GPT4: Scene {i+1} had empty elevenlabs_prompt, using default: '{default_prompt}'")
+                default_text = f"Scene {i+1} voiceover text."
+                scene["elevenlabs_prompt"] = default_text
+                logger.warning(f"WAN_GPT4: Scene {i+1} had empty elevenlabs_prompt, using default: '{default_text}'")
+            
+            # Ensure eleven_labs_emotion is from allowed set
+            allowed_emotions = ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"]
+            emotion = scene.get("eleven_labs_emotion", "").strip().lower()
+            if not emotion or emotion not in allowed_emotions:
+                scene["eleven_labs_emotion"] = "neutral"
+                logger.warning(f"WAN_GPT4: Scene {i+1} had invalid emotion '{emotion}', using default: 'neutral'")
+            
+            # Ensure eleven_labs_voice_id is from allowed set
+            allowed_voices = ["Wise_Woman", "Friendly_Person", "Inspirational_girl", "Deep_Voice_Man", "Calm_Woman", 
+                            "Casual_Guy", "Lively_Girl", "Patient_Man", "Young_Knight", "Determined_Man", "Lovely_Girl", 
+                            "Decent_Boy", "Imposing_Manner", "Elegant_Man", "Abbess", "Sweet_Girl_2", "Exuberant_Girl"]
+            voice_id = scene.get("eleven_labs_voice_id", "").strip()
+            if not voice_id or voice_id not in allowed_voices:
+                scene["eleven_labs_voice_id"] = "Friendly_Person"
+                logger.warning(f"WAN_GPT4: Scene {i+1} had invalid voice_id '{voice_id}', using default: 'Friendly_Person'")
 
         logger.info(f"WAN_GPT4: Successfully generated {len(wan_scenes)} WAN scenes!")
         for i, scene in enumerate(wan_scenes, 1):
             logger.info(f"WAN_GPT4: Scene {i}: {scene.get('nano_banana_prompt', '')[:50]}...")
+            logger.info(f"WAN_GPT4: Scene {i} elevenlabs_prompt: '{scene.get('elevenlabs_prompt', '')}'")
+            logger.info(f"WAN_GPT4: Scene {i} emotion: '{scene.get('eleven_labs_emotion', '')}'")
+            logger.info(f"WAN_GPT4: Scene {i} voice_id: '{scene.get('eleven_labs_voice_id', '')}'")
         
         if music_prompt:
             logger.info(f"WAN_GPT4: Successfully extracted music prompt: {music_prompt}")
