@@ -276,7 +276,6 @@ class WebhookHandler:
                 extracted.user_id,
                 extracted.user_email,
                 extracted.source
-                extracted.source
             ]):
                 logger.error(f"EXTRACT: Missing required WAN fields: {missing_fields}")
                 return None
