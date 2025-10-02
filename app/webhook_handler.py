@@ -135,8 +135,7 @@ class WebhookHandler:
                 ("image_url", extracted.image_url),
                 ("video_id", extracted.video_id),
                 ("user_id", extracted.user_id),
-                ("user_email", extracted.user_email),
-                ("source", extracted.source)
+                ("user_email", extracted.user_email)
             ]
             
             missing_fields = [name for name, value in required_fields if not value]
@@ -146,8 +145,7 @@ class WebhookHandler:
                 extracted.image_url,
                 extracted.video_id,
                 extracted.user_id,
-                extracted.user_email,
-                extracted.source
+                extracted.user_email
             ]):
                 logger.error(f"EXTRACT: Missing required fields: {missing_fields}")
                 return None
