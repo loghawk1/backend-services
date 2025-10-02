@@ -2,7 +2,6 @@ import asyncio
 import logging
 from typing import List, Dict
 import fal_client
-from fal_client import FalClientError
 
 logger = logging.getLogger(__name__)
 
@@ -65,22 +64,29 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
                 # If we get here, the request succeeded
                 break
                 
-            except FalClientError as e:
-                logger.error(f"FAL: Music generation request failed with FalClientError (attempt {attempt + 1}/{max_retries + 1}): {e}")
+            except Exception as e:
+                # Check if this is a retryable error (API errors, 422, 500, etc.)
+                error_str = str(e).lower()
+                is_retryable = any(keyword in error_str for keyword in [
+                    '422', '500', '502', '503', '504', 'timeout', 'rate limit', 
+                    'server error', 'bad gateway', 'service unavailable'
+                ])
                 
-                if attempt < max_retries:
+                if is_retryable and attempt < max_retries:
+                    logger.error(f"FAL: Music generation request failed with retryable error (attempt {attempt + 1}/{max_retries + 1}): {e}")
                     logger.info(f"FAL: Retrying music generation in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
                     continue
+                elif attempt < max_retries:
+                    logger.error(f"FAL: Music generation request failed with non-retryable error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                    logger.error("FAL: Error is not retryable, giving up")
+                    return ""
                 else:
                     logger.error("FAL: All retry attempts exhausted for music generation")
                     return ""
-                    
+                
             except asyncio.TimeoutError:
                 logger.error("FAL: Music generation timed out after 15 minutes")
-                return ""
-            except Exception as e:
-                logger.error(f"FAL: Music generation request failed with unexpected error: {e}")
                 return ""
         
         # Extract music URL from result
@@ -144,22 +150,29 @@ async def generate_wan_background_music_with_fal(music_prompt: str) -> str:
                 # If we get here, the request succeeded
                 break
                 
-            except FalClientError as e:
-                logger.error(f"WAN_MUSIC: Music generation request failed with FalClientError (attempt {attempt + 1}/{max_retries + 1}): {e}")
+            except Exception as e:
+                # Check if this is a retryable error (API errors, 422, 500, etc.)
+                error_str = str(e).lower()
+                is_retryable = any(keyword in error_str for keyword in [
+                    '422', '500', '502', '503', '504', 'timeout', 'rate limit', 
+                    'server error', 'bad gateway', 'service unavailable'
+                ])
                 
-                if attempt < max_retries:
+                if is_retryable and attempt < max_retries:
+                    logger.error(f"WAN_MUSIC: Music generation request failed with retryable error (attempt {attempt + 1}/{max_retries + 1}): {e}")
                     logger.info(f"WAN_MUSIC: Retrying music generation in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
                     continue
+                elif attempt < max_retries:
+                    logger.error(f"WAN_MUSIC: Music generation request failed with non-retryable error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                    logger.error("WAN_MUSIC: Error is not retryable, giving up")
+                    return ""
                 else:
                     logger.error("WAN_MUSIC: All retry attempts exhausted for music generation")
                     return ""
-                    
+                
             except asyncio.TimeoutError:
                 logger.error("WAN_MUSIC: Music generation timed out after 15 minutes")
-                return ""
-            except Exception as e:
-                logger.error(f"WAN_MUSIC: Music generation request failed with unexpected error: {e}")
                 return ""
         
         # Extract music URL from result
