@@ -606,7 +606,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             
             # For regular workflow, check if user mentions missing music
             revision_lower = extracted_data.revision_request.lower()
-            music_missing_keywords = ["no music", "no background music", "missing music", "add music", "needs music", "without music", "no sound", "silent"]
+            music_missing_keywords = ["no music", "no background music", "missing music", "add music", "needs music", "without music", "no sound", "silent", "quiet", "muted"]
             should_generate_music = any(keyword in revision_lower for keyword in music_missing_keywords)
             logger.info(f"REVISION_PIPELINE: Should generate new music (regular): {should_generate_music}")
         
