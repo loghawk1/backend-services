@@ -624,7 +624,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         await update_task_progress(extracted_data.task_id, 35, "Comparing original vs revised scenes")
         
         # Compare scenes to determine what needs regeneration (works for both WAN and regular)
-        scene_changes = compare_scenes_for_changes(original_scenes, revised_scenes)
+        scene_changes = await compare_scenes_for_changes(original_scenes, revised_scenes)
         
         # Log comparison results
         total_images_to_regen = sum(1 for sc in scene_changes if sc["image_needs_regen"])
