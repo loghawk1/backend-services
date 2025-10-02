@@ -306,6 +306,12 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
         
+        # Store the single music prompt separately in the music table
+        if music_prompt and music_prompt.strip():
+            logger.info("WAN_PIPELINE: Storing WAN music prompt in music table...")
+            from .services.database_operations import store_wan_music_prompt_in_supabase
+            await store_wan_music_prompt_in_supabase(music_prompt, extracted_data.video_id, extracted_data.user_id)
+        
         # Step 3: Resize the initial product image
         logger.info("WAN_PIPELINE: Step 3 - Resizing initial product image...")
         await update_task_progress(extracted_data.task_id, 20, "Resizing product image for WAN")
@@ -422,7 +428,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             logger.info("WAN_PIPELINE: Normalizing background music volume...")
             normalized_music_url = await normalize_music_volume(raw_music_url, offset=-15.0)
             
-            # Store music in database
+            # Update music record with actual generated music URL (replace the prompt placeholder)
             await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
             logger.info(f"WAN_PIPELINE: Background music processed and stored: {normalized_music_url}")
         else:
@@ -612,6 +618,7 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         if workflow_type == "wan":
             # For WAN revisions, we need to convert back to WAN format for storage
             wan_scenes_for_storage = []
+            
             for scene in revised_scenes:
                 wan_scene = {
                     "scene_number": scene.get("scene_number", 1),
