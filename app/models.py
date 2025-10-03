@@ -54,6 +54,8 @@ class WanScene(BaseModel):
     scene_number: int = Field(..., description="Scene number (1-6)")
     nano_banana_prompt: str = Field(..., description="Image generation prompt for Nano Banana")
     elevenlabs_prompt: str = Field(..., description="Text-to-speech prompt for ElevenLabs")
+    eleven_labs_emotion: str = Field(..., description="Emotion for ElevenLabs TTS")
+    eleven_labs_voice_id: str = Field(..., description="Voice ID for ElevenLabs TTS")
     wan2_5_prompt: str = Field(..., description="Video animation prompt for WAN 2.5")
 
 class ExtractedWanData(BaseModel):
