@@ -35,7 +35,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": nano_banana_prompt,
+                        "prompt": f"{nano_banana_prompt}, UGC authentic style. Fixed camera, static shot, locked composition, single subject centered. Low fidelity, hyper-realism, -(Exclude poor anatomy, fused fingers, distorted face).",
                         "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg",
@@ -187,32 +187,17 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
 
                 # Map voice_id to MiniMax compatible voice names
                 voice_mapping = {
-                    "Wise_Woman": "female-qn-qingse",
-                    "Deep_Voice_Man": "male-qn-jingying", 
-                    "Friendly_Person": "female-qn-qingse",
-                    "Inspirational_girl": "female-qn-qingse",
-                    "Calm_Woman": "female-qn-qingse",
-                    "Casual_Guy": "male-qn-jingying",
-                    "Lively_Girl": "female-qn-qingse",
-                    "Patient_Man": "male-qn-jingying",
-                    "Young_Knight": "male-qn-jingying",
-                    "Determined_Man": "male-qn-jingying",
-                    "Lovely_Girl": "female-qn-qingse",
-                    "Decent_Boy": "male-qn-jingying",
-                    "Imposing_Manner": "male-qn-jingying",
-                    "Elegant_Man": "male-qn-jingying",
-                    "Abbess": "female-qn-qingse",
-                    "Sweet_Girl_2": "female-qn-qingse",
-                    "Exuberant_Girl": "female-qn-qingse"
+                    "Wise_Woman": "Wise_Woman",
+                    "Deep_Voice_Man": "Deep_Voice_Man", 
                 }
                 
                 # Get MiniMax voice name
-                minimax_voice = voice_mapping.get(eleven_labs_voice_id, "female-qn-qingse")
+                minimax_voice = voice_mapping.get(eleven_labs_voice_id, "Wise_Woman")
                 logger.info(f"WAN_VOICEOVER: Scene {i+1} mapped voice {eleven_labs_voice_id} -> {minimax_voice}")
 
                 # Map emotion to MiniMax compatible emotions
                 emotion_mapping = {
-                    "happy": "cheerful",
+                    "happy": "happy",
                     "sad": "sad",
                     "angry": "angry",
                     "fearful": "fearful",
@@ -371,7 +356,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     fal_client.submit,
                     "fal-ai/wan-25-preview/image-to-video",
                     arguments={
-                        "prompt": wan2_5_prompt,
+                        "prompt": f"{wan2_5_prompt}, Mandatory Aesthetic for 100% Authentic UGC look:Low-Fidelity (Low-Fi). Mobile camera simulation. Natural lighting. Mandatory 10 FPS (Posterize Time). High Grain/Noise (35%). Low Contrast. Simulate H.264 compression look.Aggressive hard cuts.UGC Style captions on screen.",
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
