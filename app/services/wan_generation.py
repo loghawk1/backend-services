@@ -37,7 +37,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": nano_banana_prompt,
+                        "prompt": f"{nano_banana_prompt}, UGC authentic style. Fixed camera, static shot, locked composition, single subject centered. Low fidelity, hyper-realism, -(Exclude poor anatomy, fused fingers, distorted face).",
                         "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg",
