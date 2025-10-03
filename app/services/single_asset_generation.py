@@ -59,12 +59,13 @@ async def generate_single_voiceover_with_fal(voiceover_prompt: str) -> str:
         return ""
 
 
-async def generate_single_scene_image_with_fal(image_prompt: str, base_image_url: str) -> str:
+async def generate_single_scene_image_with_fal(image_prompt: str, base_image_url: str, aspect_ratio: str = "9:16") -> str:
     """Generate a single scene image using fal.ai Gemini edit model"""
     try:
         logger.info(f"FAL: Starting single scene image generation...")
         logger.info(f"FAL: Image prompt: {image_prompt[:100]}...")
         logger.info(f"FAL: Base image URL: {base_image_url}")
+        logger.info(f"FAL: Using aspect ratio: {aspect_ratio}")
 
         # Submit image generation request
         handler = await asyncio.to_thread(
@@ -74,7 +75,8 @@ async def generate_single_scene_image_with_fal(image_prompt: str, base_image_url
                 "prompt": image_prompt,
                 "image_urls": [base_image_url],
                 "num_images": 1,
-                "output_format": "jpeg"
+                "output_format": "jpeg",
+                "aspect_ratio": aspect_ratio
             }
         )
 
