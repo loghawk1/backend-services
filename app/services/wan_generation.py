@@ -322,7 +322,10 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     fal_client.submit,
                     "fal-ai/wan-25-preview/image-to-video",
                     arguments={
-                        "prompt": wan2_5_prompt,
+                        "prompt": f"{wan2_5_prompt},Mandatory Aesthetic for 100% Authentic UGC look: 
+Low-Fidelity (Low-Fi). Mobile camera simulation. Natural lighting. Mandatory 10 FPS (Posterize Time). High Grain/Noise (35%). Low Contrast. Simulate H.264 compression look. 
+Aggressive hard cuts. 
+UGC Style captions on screen.",
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
