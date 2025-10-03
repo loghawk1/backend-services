@@ -6,73 +6,17 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def resize_image_with_fal(image_url: str, aspect_ratio: str = "9:16") -> str:
-    """
-    Resize/reframe image using fal.ai Luma Photon Reframe API.
-    Uses fal_client (sync) inside async with asyncio.to_thread.
-    
-    Args:
-        image_url: URL of the image to resize
-        aspect_ratio: Target aspect ratio (e.g., "9:16", "16:9", "1:1")
-    """
-    try:
-        logger.info("FAL: Starting image resize/reframe...")
-        logger.info(f"FAL: Original image URL: {image_url}")
-        logger.info(f"FAL: Target aspect ratio: {aspect_ratio}")
-
-        # Submit the request (runs in thread to not block event loop)
-        handler = await asyncio.to_thread(
-            fal_client.submit,
-            "fal-ai/luma-photon/reframe",
-            arguments={
-                "image_url": image_url,
-                "aspect_ratio": aspect_ratio,
-                "prompt": (
-                    f"Resize this image to a {aspect_ratio} aspect ratio. Automatically detect the background "
-                    "and extend it seamlessly to fill the extra space, keeping the subject untouched. "
-                    "Do not stretch or distort the subject, only expand the natural background so the "
-                    "final image looks natural and consistent."
-                ),
-            },
-        )
-
-        # Wait for result (blocking get wrapped in thread)
-        logger.info("FAL: Waiting for image processing result...")
-        result = await asyncio.to_thread(handler.get)
-
-        logger.debug(f"FAL: Raw result: {result}")
-
-        # Handle both "image" and "images"
-        if result:
-            if "image" in result and "url" in result["image"]:
-                resized_image_url = result["image"]["url"]
-                logger.info(f"FAL: Image resized successfully: {resized_image_url}")
-                return resized_image_url
-
-            elif "images" in result and isinstance(result["images"], list) and len(result["images"]) > 0:
-                resized_image_url = result["images"][0].get("url", image_url)
-                logger.info(f"FAL: Image resized successfully: {resized_image_url}")
-                return resized_image_url
-
-        logger.error("FAL: No valid URL in result, using original")
-        return image_url
-
-    except Exception as e:
-        logger.error(f"FAL: Failed to resize image: {e}")
-        logger.exception("Full traceback:")
-        return image_url
-
-
-async def generate_scene_images_with_fal(image_prompts: List[str], base_image_url: str) -> List[str]:
+async def generate_scene_images_with_fal(image_prompts: List[str], base_image_url: str, aspect_ratio: str = "9:16") -> List[str]:
     """Generate scene images using fal.ai Gemini edit model based on combined image prompts + existing images"""
     try:
-        logger.info(f"FAL: Starting scene image generation for {len(image_prompts)} scenes...")
+        logger.info(f"FAL: Starting scene image generation for {len(image_prompts)} scenes with aspect ratio {aspect_ratio}...")
         scene_image_urls = []
 
         for i, image_prompt in enumerate(image_prompts, 1):
             try:
                 logger.info(f"FAL: Generating image for scene {i}...")
                 logger.info(f"FAL: Image prompt: {image_prompt[:100]}...")
+                logger.info(f"FAL: Using aspect ratio: {aspect_ratio}")
 
                 # Submit the request using asyncio.to_thread
                 handler = await asyncio.to_thread(
@@ -82,7 +26,8 @@ async def generate_scene_images_with_fal(image_prompts: List[str], base_image_ur
                         "prompt": image_prompt,
                         "image_urls": [base_image_url],
                         "num_images": 1,
-                        "output_format": "jpeg"
+                        "output_format": "jpeg",
+                        "aspect_ratio": aspect_ratio
                     }
                 )
 
