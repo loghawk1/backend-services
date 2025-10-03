@@ -6,29 +6,27 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], base_image_url: str,
-                                             aspect_ratio: str = "9:16") -> List[str]:
+async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], base_image_url: str, aspect_ratio: str = "9:16") -> List[str]:
     """Generate scene images using fal.ai Gemini edit model based on nano_banana_prompts and resized base image from frontend"""
     try:
-        logger.info(
-            f"WAN: Starting scene image generation for {len(nano_banana_prompts)} scenes using Gemini edit with aspect ratio {aspect_ratio}...")
-        logger.info(f"WAN: Base image URL: {base_image_url}")
-
+        logger.info(f"WAN_IMAGE: Starting scene image generation for {len(nano_banana_prompts)} scenes using Gemini edit with aspect ratio {aspect_ratio}...")
+        logger.info(f"WAN_IMAGE: Base image URL: {base_image_url}")
+        
         # Initialize results list
         scene_image_urls = [""] * len(nano_banana_prompts)
         handlers = []
 
         # Phase 1: Submit all image requests concurrently
         logger.info("WAN: Phase 1 - Submitting all image generation requests...")
-
+        
         for i, nano_banana_prompt in enumerate(nano_banana_prompts):
             try:
                 if not nano_banana_prompt or not nano_banana_prompt.strip():
-                    logger.warning(f"WAN: Empty nano_banana_prompt for scene {i + 1}")
+                    logger.warning(f"WAN: Empty nano_banana_prompt for scene {i+1}")
                     handlers.append(None)
                     continue
 
-                logger.info(f"WAN: Submitting image request for scene {i + 1}...")
+                logger.info(f"WAN: Submitting image request for scene {i+1}...")
                 logger.info(f"WAN: Gemini edit prompt: {nano_banana_prompt[:100]}...")
                 logger.info(f"WAN: Using aspect ratio: {aspect_ratio}")
 
@@ -37,7 +35,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": f"{nano_banana_prompt}, UGC authentic style. Fixed camera, static shot, locked composition, single subject centered. Low fidelity, hyper-realism, -(Exclude poor anatomy, fused fingers, distorted face).",
+                        "prompt": nano_banana_prompt,
                         "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg",
@@ -46,14 +44,13 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                 )
 
                 handlers.append(handler)
-                logger.info(f"WAN: Scene {i + 1} image request submitted successfully")
+                logger.info(f"WAN: Scene {i+1} image request submitted successfully")
 
             except Exception as e:
-                logger.error(f"WAN: Failed to submit image request for scene {i + 1}: {e}")
+                logger.error(f"WAN: Failed to submit image request for scene {i+1}: {e}")
                 handlers.append(None)
 
-        logger.info(
-            f"WAN: Submitted {len([h for h in handlers if h])} out of {len(nano_banana_prompts)} image requests")
+        logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(nano_banana_prompts)} image requests")
 
         # Phase 2: Wait for all results concurrently
         logger.info("WAN: Phase 2 - Waiting for all image generation results...")
@@ -109,15 +106,14 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
             # Continue with whatever results we have
 
         successful_images = len([url for url in scene_image_urls if url])
-        logger.info(
-            f"WAN: Generated {successful_images} out of {len(nano_banana_prompts)} images successfully using Gemini edit")
+        logger.info(f"WAN: Generated {successful_images} out of {len(nano_banana_prompts)} images successfully using Gemini edit")
 
         # Log final results
         for i, url in enumerate(scene_image_urls):
             if url:
-                logger.info(f"WAN: Scene {i + 1} final image URL: {url}")
+                logger.info(f"WAN: Scene {i+1} final image URL: {url}")
             else:
-                logger.warning(f"WAN: Scene {i + 1} has no image URL")
+                logger.warning(f"WAN: Scene {i+1} has no image URL")
 
         return scene_image_urls
 
@@ -130,101 +126,138 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
 async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
     """Generate voiceovers using fal.ai MiniMax Speech 2.5 Turbo based on WAN scenes with emotion and voice_id support"""
     try:
-        logger.info(f"WAN: Starting voiceover generation for {len(wan_scenes)} scenes...")
+        logger.info(f"WAN_VOICEOVER: Starting voiceover generation for {len(wan_scenes)} scenes...")
 
         # Debug: Log all input scenes to see what GPT-4 generated
+        logger.info("WAN_VOICEOVER: === Input Scenes Debug ===")
         for i, scene in enumerate(wan_scenes):
             elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
             emotion = scene.get("eleven_labs_emotion", "")
             voice_id = scene.get("eleven_labs_voice_id", "")
-            logger.info(f"WAN: Scene {i + 1} elevenlabs_prompt: '{elevenlabs_prompt}'")
-            logger.info(f"WAN: Scene {i + 1} emotion: '{emotion}'")
-            logger.info(f"WAN: Scene {i + 1} voice_id: '{voice_id}'")
-
+            logger.info(f"WAN_VOICEOVER: Scene {i+1} elevenlabs_prompt: '{elevenlabs_prompt}'")
+            logger.info(f"WAN_VOICEOVER: Scene {i+1} emotion: '{emotion}'")
+            logger.info(f"WAN_VOICEOVER: Scene {i+1} voice_id: '{voice_id}'")
+        logger.info("WAN_VOICEOVER: === End Input Scenes Debug ===")
+        
         # Initialize results list
         voiceover_urls = [""] * len(wan_scenes)
         handlers = []
 
         # Phase 1: Submit all voiceover requests concurrently
         logger.info("WAN: Phase 1 - Submitting all voiceover generation requests...")
-
+        
         for i, scene in enumerate(wan_scenes):
             try:
                 # Extract voiceover data from scene
-                logger.info(f"WAN: === Processing Scene {i + 1} ===")
+                logger.info(f"WAN: === Processing Scene {i+1} ===")
                 logger.info(f"WAN: Full scene data: {scene}")
-
+                
                 elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
                 eleven_labs_emotion = scene.get("eleven_labs_emotion", "neutral")
                 eleven_labs_voice_id = scene.get("eleven_labs_voice_id", "Wise_Woman")
 
-                logger.info(f"WAN: Scene {i + 1} extracted elevenlabs_prompt: '{elevenlabs_prompt}'")
-                logger.info(f"WAN: Scene {i + 1} extracted eleven_labs_emotion: '{eleven_labs_emotion}'")
-                logger.info(f"WAN: Scene {i + 1} extracted eleven_labs_voice_id: '{eleven_labs_voice_id}'")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} extracted elevenlabs_prompt: '{elevenlabs_prompt}'")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} extracted eleven_labs_emotion: '{eleven_labs_emotion}'")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} extracted eleven_labs_voice_id: '{eleven_labs_voice_id}'")
 
+                # Add fallback if prompt is empty
                 if not elevenlabs_prompt or not elevenlabs_prompt.strip():
-                    logger.warning(f"WAN: Empty elevenlabs_prompt for scene {i + 1}")
-                    handlers.append(None)
-                    continue
+                    elevenlabs_prompt = f"This is scene {i+1} of the video."
+                    logger.warning(f"WAN_VOICEOVER: Empty elevenlabs_prompt for scene {i+1}, using fallback: '{elevenlabs_prompt}'")
 
                 # Use the elevenlabs_prompt as speech text directly
                 voiceover_text = elevenlabs_prompt.strip()
 
-                logger.info(f"WAN: Using speech text for scene {i + 1}: '{voiceover_text}'")
+                logger.info(f"WAN_VOICEOVER: Final speech text for scene {i+1}: '{voiceover_text}'")
 
-                # Validate that we have actual speech text after extraction
+                # At this point voiceover_text should never be empty due to fallback above
                 if not voiceover_text:
-                    logger.warning(f"WAN: No speech text found after extraction for scene {i + 1}")
+                    logger.error(f"WAN_VOICEOVER: CRITICAL - No speech text after fallback for scene {i+1}!")
                     handlers.append(None)
                     continue
-
+                
                 # Truncate if too long (max 5000 characters according to API docs)
                 if len(voiceover_text) > 5000:
                     voiceover_text = voiceover_text[:5000]
-                    logger.warning(f"WAN: Truncated elevenlabs_prompt for scene {i + 1} to 5000 characters")
+                    logger.warning(f"WAN: Truncated elevenlabs_prompt for scene {i+1} to 5000 characters")
 
-                logger.info(f"WAN: Submitting voiceover request for scene {i + 1}...")
-                logger.info(f"WAN: Using extracted speech text: {voiceover_text[:100]}...")
+                logger.info(f"WAN_VOICEOVER: Submitting voiceover request for scene {i+1}...")
+                logger.info(f"WAN_VOICEOVER: Speech text length: {len(voiceover_text)} characters")
+                logger.info(f"WAN_VOICEOVER: Speech text preview: {voiceover_text[:100]}...")
 
-                # Build voice_setting with emotion and voice_id support
-                voice_setting = {
-                    "speed": 1.2,  # Slightly faster for UGC feel
-                    "vol": 1,
-                    "pitch": 0,
-                    "english_normalization": False
+                # Map voice_id to MiniMax compatible voice names
+                voice_mapping = {
+                    "Wise_Woman": "female-qn-qingse",
+                    "Deep_Voice_Man": "male-qn-jingying", 
+                    "Friendly_Person": "female-qn-qingse",
+                    "Inspirational_girl": "female-qn-qingse",
+                    "Calm_Woman": "female-qn-qingse",
+                    "Casual_Guy": "male-qn-jingying",
+                    "Lively_Girl": "female-qn-qingse",
+                    "Patient_Man": "male-qn-jingying",
+                    "Young_Knight": "male-qn-jingying",
+                    "Determined_Man": "male-qn-jingying",
+                    "Lovely_Girl": "female-qn-qingse",
+                    "Decent_Boy": "male-qn-jingying",
+                    "Imposing_Manner": "male-qn-jingying",
+                    "Elegant_Man": "male-qn-jingying",
+                    "Abbess": "female-qn-qingse",
+                    "Sweet_Girl_2": "female-qn-qingse",
+                    "Exuberant_Girl": "female-qn-qingse"
+                }
+                
+                # Get MiniMax voice name
+                minimax_voice = voice_mapping.get(eleven_labs_voice_id, "female-qn-qingse")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} mapped voice {eleven_labs_voice_id} -> {minimax_voice}")
+
+                # Map emotion to MiniMax compatible emotions
+                emotion_mapping = {
+                    "happy": "cheerful",
+                    "sad": "sad",
+                    "angry": "angry",
+                    "fearful": "fearful",
+                    "disgusted": "disgusted",
+                    "surprised": "surprised",
+                    "neutral": "neutral"
                 }
 
-                # Use voice_id from scene data (already validated)
-                voice_setting["voice_id"] = eleven_labs_voice_id
+                minimax_emotion = emotion_mapping.get(eleven_labs_emotion, "neutral")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} mapped emotion {eleven_labs_emotion} -> {minimax_emotion}")
 
-                # Use emotion from scene data (already validated)
-                voice_setting["emotion"] = eleven_labs_emotion
-
-                logger.info(f"WAN: Scene {i + 1} voice_setting: {voice_setting}")
-
-                # Submit voiceover generation request using MiniMax Speech 2.5 Turbo
+                # Submit voiceover generation request using MiniMax Speech 2.5 Turbo with proper voice mapping
                 handler = await asyncio.to_thread(
                     fal_client.submit,
                     "fal-ai/minimax/preview/speech-2.5-turbo",
                     arguments={
                         "text": voiceover_text,  # Use extracted speech text only
-                        "voice_setting": voice_setting,
+                        "voice_setting": {
+                            "voice_id": minimax_voice,
+                            "speed": 1.2,
+                            "vol": 1.0,
+                            "pitch": 0,
+                            "emotion": minimax_emotion
+                        },
                         "output_format": "url"  # Get URL response instead of hex
                     }
                 )
 
                 handlers.append(handler)
-                logger.info(
-                    f"WAN: Scene {i + 1} voiceover request submitted successfully using MiniMax Speech 2.5 Turbo")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} voiceover request submitted successfully using MiniMax Speech 2.5 Turbo")
 
             except Exception as e:
-                logger.error(f"WAN: Failed to submit voiceover request for scene {i + 1}: {e}")
+                logger.error(f"WAN_VOICEOVER: Failed to submit voiceover request for scene {i+1}: {e}")
+                logger.exception(f"WAN_VOICEOVER: Full traceback for scene {i+1}:")
                 handlers.append(None)
 
-        logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(wan_scenes)} voiceover requests")
+        successful_submissions = len([h for h in handlers if h])
+        logger.info(f"WAN_VOICEOVER: Submitted {successful_submissions} out of {len(wan_scenes)} voiceover requests")
+
+        if successful_submissions == 0:
+            logger.error("WAN_VOICEOVER: CRITICAL - No voiceover requests were submitted successfully!")
+            return ["" for _ in wan_scenes]
 
         # Phase 2: Wait for all results concurrently
-        logger.info("WAN: Phase 2 - Waiting for all voiceover generation results...")
+        logger.info("WAN_VOICEOVER: Phase 2 - Waiting for all voiceover generation results...")
 
         async def get_voiceover_result(handler, scene_index):
             """Get result from a single voiceover generation handler"""
@@ -232,23 +265,24 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
                 return scene_index, ""
 
             try:
-                logger.info(f"WAN: Waiting for scene {scene_index + 1} voiceover result...")
+                logger.info(f"WAN_VOICEOVER: Waiting for scene {scene_index + 1} voiceover result...")
                 result = await asyncio.to_thread(handler.get)
 
                 # Log the full result to debug the response format
-                logger.info(f"WAN: Scene {scene_index + 1} voiceover result: {result}")
+                logger.info(f"WAN_VOICEOVER: Scene {scene_index + 1} raw API result: {result}")
 
                 if result and "audio" in result and "url" in result["audio"]:
                     voiceover_url = result["audio"]["url"]
-                    logger.info(f"WAN: Scene {scene_index + 1} voiceover generated successfully: {voiceover_url}")
+                    logger.info(f"WAN_VOICEOVER: Scene {scene_index + 1} voiceover generated successfully: {voiceover_url}")
                     return scene_index, voiceover_url
                 else:
-                    logger.error(f"WAN: No voiceover generated for scene {scene_index + 1}")
-                    logger.error(f"WAN: Unexpected result format: {result}")
+                    logger.error(f"WAN_VOICEOVER: No voiceover generated for scene {scene_index + 1}")
+                    logger.error(f"WAN_VOICEOVER: Unexpected result format. Expected {{'audio': {{'url': '...'}}}}, got: {result}")
                     return scene_index, ""
 
             except Exception as e:
-                logger.error(f"WAN: Failed to get voiceover result for scene {scene_index + 1}: {e}")
+                logger.error(f"WAN_VOICEOVER: Failed to get voiceover result for scene {scene_index + 1}: {e}")
+                logger.exception(f"WAN_VOICEOVER: Full traceback for scene {scene_index + 1}:")
                 return scene_index, ""
 
         # Create tasks for all handlers
@@ -258,7 +292,7 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
             tasks.append(task)
 
         # Wait for all results with timeout
-        logger.info(f"WAN: Waiting for {len(tasks)} voiceover generation tasks to complete...")
+        logger.info(f"WAN_VOICEOVER: Waiting for {len(tasks)} voiceover generation tasks to complete...")
         try:
             # Add timeout to prevent hanging
             results = await asyncio.wait_for(
@@ -269,31 +303,41 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
             # Process results
             for result in results:
                 if isinstance(result, Exception):
-                    logger.error(f"WAN: Voiceover generation task failed: {result}")
+                    logger.error(f"WAN_VOICEOVER: Voiceover generation task failed with exception: {result}")
+                    logger.exception(f"WAN_VOICEOVER: Exception details:")
                     continue
 
                 scene_index, voiceover_url = result
                 voiceover_urls[scene_index] = voiceover_url
+                if voiceover_url:
+                    logger.info(f"WAN_VOICEOVER: Successfully stored voiceover URL for scene {scene_index + 1}")
+                else:
+                    logger.warning(f"WAN_VOICEOVER: Empty voiceover URL for scene {scene_index + 1}")
 
         except asyncio.TimeoutError:
-            logger.error("WAN: Voiceover generation timed out after 5 minutes")
+            logger.error("WAN_VOICEOVER: Voiceover generation timed out after 5 minutes")
             # Continue with whatever results we have
 
         successful_voiceovers = len([url for url in voiceover_urls if url])
-        logger.info(f"WAN: Generated {successful_voiceovers} out of {len(wan_scenes)} voiceovers successfully")
+        logger.info(f"WAN_VOICEOVER: === Final Voiceover Results ===")
+        logger.info(f"WAN_VOICEOVER: Generated {successful_voiceovers} out of {len(wan_scenes)} voiceovers successfully")
 
         # Log final results
         for i, url in enumerate(voiceover_urls):
             if url:
-                logger.info(f"WAN: Scene {i + 1} final voiceover URL: {url}")
+                logger.info(f"WAN_VOICEOVER: Scene {i+1} final voiceover URL: {url}")
             else:
-                logger.warning(f"WAN: Scene {i + 1} has no voiceover URL")
+                logger.error(f"WAN_VOICEOVER: Scene {i+1} has NO voiceover URL - THIS IS A PROBLEM!")
+        logger.info(f"WAN_VOICEOVER: === End Final Voiceover Results ===")
+
+        if successful_voiceovers == 0:
+            logger.error("WAN_VOICEOVER: CRITICAL - No voiceovers were generated! Returning empty list.")
 
         return voiceover_urls
 
     except Exception as e:
-        logger.error(f"WAN: Failed to generate voiceovers: {e}")
-        logger.exception("Full traceback:")
+        logger.error(f"WAN_VOICEOVER: Failed to generate voiceovers: {e}")
+        logger.exception("WAN_VOICEOVER: Full traceback:")
         return []
 
 
@@ -301,25 +345,24 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
     """Generate videos from scene images using fal.ai WAN 2.5 based on wan2_5_prompts"""
     try:
         logger.info(f"WAN: Starting video generation for {len(scene_image_urls)} scene images...")
-
+        
         # Initialize results list
         video_urls = [""] * len(scene_image_urls)
         handlers = []
 
         # Phase 1: Submit all video requests concurrently
         logger.info("WAN: Phase 1 - Submitting all video generation requests...")
-
+        
         for i, image_url in enumerate(scene_image_urls):
             try:
                 if not image_url or i >= len(wan2_5_prompts):
-                    logger.warning(f"WAN: Missing image URL or wan2_5_prompt for scene {i + 1}")
+                    logger.warning(f"WAN: Missing image URL or wan2_5_prompt for scene {i+1}")
                     handlers.append(None)
                     continue
 
-                wan2_5_prompt = wan2_5_prompts[i] if wan2_5_prompts[
-                    i] else "Animate the static image with subtle movement and UGC-style camera work."
+                wan2_5_prompt = wan2_5_prompts[i] if wan2_5_prompts[i] else "Animate the static image with subtle movement and UGC-style camera work."
 
-                logger.info(f"WAN: Submitting video request for scene {i + 1}...")
+                logger.info(f"WAN: Submitting video request for scene {i+1}...")
                 logger.info(f"WAN: Image URL: {image_url}")
                 logger.info(f"WAN: WAN 2.5 prompt: {wan2_5_prompt[:100]}...")
 
@@ -328,21 +371,20 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     fal_client.submit,
                     "fal-ai/wan-25-preview/image-to-video",
                     arguments={
-                        "prompt": f"{wan2_5_prompt}, Mandatory Aesthetic for 100% Authentic UGC look: Low-Fidelity (Low-Fi). Mobile camera simulation. Natural lighting. Mandatory 10 FPS (Posterize Time). High Grain/Noise (35%). Low Contrast. Simulate H.264 compression look. Aggressive hard cuts. UGC Style captions on screen.",
-
-                "image_url": image_url,
-                "resolution": "480p",
-                "duration": "5",  # 5 seconds per scene
-                "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces. Short sfx, melody background music, loud sfx, people speaking, unrealistic, unrelated sfx, voiceover, slow movements",
-                "enable_prompt_expansion": True
-                }
+                        "prompt": wan2_5_prompt,
+                        "image_url": image_url,
+                        "resolution": "480p",
+                        "duration": "5",  # 5 seconds per scene
+                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces. Short sfx, melody background music, loud sfx, people speaking, unrealistic, unrelated sfx, voiceover, slow movements",
+                        "enable_prompt_expansion": True
+                    }
                 )
 
                 handlers.append(handler)
-                logger.info(f"WAN: Scene {i + 1} video request submitted successfully")
+                logger.info(f"WAN: Scene {i+1} video request submitted successfully")
 
             except Exception as e:
-                logger.error(f"WAN: Failed to submit video request for scene {i + 1}: {e}")
+                logger.error(f"WAN: Failed to submit video request for scene {i+1}: {e}")
                 handlers.append(None)
 
         logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(scene_image_urls)} video requests")
@@ -406,9 +448,9 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
         # Log final results
         for i, url in enumerate(video_urls):
             if url:
-                logger.info(f"WAN: Scene {i + 1} final video URL: {url}")
+                logger.info(f"WAN: Scene {i+1} final video URL: {url}")
             else:
-                logger.warning(f"WAN: Scene {i + 1} has no video URL")
+                logger.warning(f"WAN: Scene {i+1} has no video URL")
 
         return video_urls
 
