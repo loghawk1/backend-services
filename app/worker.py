@@ -19,7 +19,7 @@ from .supabase_client import get_supabase_client
 
 # Import all service modules
 from .services.scene_generation import generate_scenes_with_gpt4, wan_scene_generator
-from .services.image_processing import resize_image_with_fal, generate_scene_images_with_fal
+from .services.image_processing import generate_scene_images_with_fal
 from .services.audio_generation import generate_voiceovers_with_fal
 from .services.video_generation import generate_videos_with_fal
 from .services.music_generation import generate_background_music_with_fal, normalize_music_volume, store_music_in_database
