@@ -6,10 +6,10 @@ import fal_client
 logger = logging.getLogger(__name__)
 
 
-async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], base_image_url: str) -> List[str]:
+async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], base_image_url: str, aspect_ratio: str = "9:16") -> List[str]:
     """Generate scene images using fal.ai Gemini edit model based on nano_banana_prompts and resized base image from frontend"""
     try:
-        logger.info(f"WAN: Starting scene image generation for {len(nano_banana_prompts)} scenes using Gemini edit with base image...")
+        logger.info(f"WAN: Starting scene image generation for {len(nano_banana_prompts)} scenes using Gemini edit with aspect ratio {aspect_ratio}...")
         logger.info(f"WAN: Base image URL: {base_image_url}")
         
         # Initialize results list
@@ -28,6 +28,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
 
                 logger.info(f"WAN: Submitting image request for scene {i+1}...")
                 logger.info(f"WAN: Gemini edit prompt: {nano_banana_prompt[:100]}...")
+                logger.info(f"WAN: Using aspect ratio: {aspect_ratio}")
 
                 # Submit image generation request using Gemini edit model
                 handler = await asyncio.to_thread(
@@ -37,7 +38,8 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                         "prompt": nano_banana_prompt,
                         "image_urls": [base_image_url],
                         "num_images": 1,
-                        "output_format": "jpeg"
+                        "output_format": "jpeg",
+                        "aspect_ratio": aspect_ratio
                     }
                 )
 
