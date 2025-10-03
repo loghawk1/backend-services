@@ -226,7 +226,7 @@ json
  ],
  "music_prompt": "..."
 }
-NOTE: all text overlays should be only on the wan2_5_prompt prompt
+NOTE: all text overlays should be only on the wan2_5_prompt prompt and also make sure that wan2_5_prompt prompt includes the scene SFX (MUST)
 Always follow this structure with no deviations."""
 
         messages = [
