@@ -38,8 +38,8 @@ async def send_video_callback(
         logger.info(f"CALLBACK: User ID: {user_id}")
         logger.info(f"CALLBACK: Is Revision: {is_revision}")
         
-        # Use provided callback URL or default
-        endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
+        # Use static callback URL (ignore provided callback_url parameter)
+        endpoint_url = "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         logger.info(f"CALLBACK: Endpoint URL: {endpoint_url}")
         
         # Prepare JSON payload (different structure for revision vs regular)
@@ -68,7 +68,8 @@ async def send_video_callback(
         # Prepare headers with authentication
         headers = {
             "User-Agent": "FastAPI-Video-Processor/1.0",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Base44-App-Id": settings.base44_app_id
         }
         
         # Send POST request with JSON payload
@@ -132,8 +133,8 @@ async def send_error_callback(
         logger.info(f"CALLBACK: Video ID: {video_id}")
         logger.info(f"CALLBACK: Is Revision: {is_revision}")
         
-        # Use provided callback URL or default
-        endpoint_url = callback_url or "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
+        # Use static callback URL (ignore provided callback_url parameter)
+        endpoint_url = "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         
         # Prepare error JSON payload
         payload = {
@@ -155,7 +156,8 @@ async def send_error_callback(
         # Prepare headers with authentication
         headers = {
             "User-Agent": "FastAPI-Video-Processor/1.0",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Base44-App-Id": settings.base44_app_id
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
