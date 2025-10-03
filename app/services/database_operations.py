@@ -71,6 +71,8 @@ async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, us
                 "image_prompt": scene.get("nano_banana_prompt", "")[:2000],  # Map nano_banana_prompt to image_prompt
                 "visual_description": scene.get("wan2_5_prompt", "")[:1000],  # Map wan2_5_prompt to visual_description
                 "vioce_over": scene.get("elevenlabs_prompt", "")[:1000],  # Map elevenlabs_prompt to vioce_over
+                "eleven_labs_emotion": scene.get("eleven_labs_emotion", "neutral"),  # Store emotion
+                "eleven_labs_voice_id": scene.get("eleven_labs_voice_id", "Wise_Woman"),  # Store voice ID
                 "sound_effects": "",  # WAN workflow doesn't use separate sound effects
                 "music_direction": "",  # WAN workflow doesn't use separate music direction per scene
                 "image_url": None,  # Will be updated later when scene images are generated
@@ -79,6 +81,7 @@ async def store_wan_scenes_in_supabase(wan_scenes: List[Dict], video_id: str, us
             }
             scene_records.append(scene_record)
             logger.info(f"DATABASE: WAN Scene {scene_record['scene_number']} - Nano Banana prompt: {scene_record['image_prompt'][:50]}...")
+            logger.info(f"DATABASE: WAN Scene {scene_record['scene_number']} - Voice: {scene_record['eleven_labs_voice_id']}, Emotion: {scene_record['eleven_labs_emotion']}")
 
         # Insert all 6 WAN scenes at once
         logger.info(f"DATABASE: Inserting {len(scene_records)} WAN scene records...")
@@ -427,12 +430,15 @@ async def update_scenes_with_revised_content(revised_scenes: List[Dict], video_i
                 "image_prompt": scene.get("image_prompt", "")[:2000],  # New combined image prompt
                 "visual_description": scene.get("visual_description", "")[:1000],  # Limit length
                 "vioce_over": scene.get("vioce_over", "")[:1000],  # Fixed: use correct field name
+                "eleven_labs_emotion": scene.get("eleven_labs_emotion", "neutral"),  # Update emotion
+                "eleven_labs_voice_id": scene.get("eleven_labs_voice_id", "Wise_Woman"),  # Update voice ID
                 "sound_effects": "",  # No longer generated separately
                 "music_direction": scene.get("music_direction", "")[:500],
                 "updated_at": datetime.utcnow().isoformat()
             }
             
             logger.info(f"DATABASE: Updating scene {scene_number} with revised content...")
+            logger.info(f"DATABASE: Scene {scene_number} - Voice: {update_data['eleven_labs_voice_id']}, Emotion: {update_data['eleven_labs_emotion']}")
             
             result = supabase.table("scenes").update(update_data).eq("video_id", video_id).eq("user_id", user_id).eq("scene_number", scene_number).execute()
             
