@@ -226,6 +226,7 @@ json
  ],
  "music_prompt": "..."
 }
+NOTE: all text overlays should be only on the wan2_5_prompt prompt
 Always follow this structure with no deviations."""
 
         messages = [
