@@ -1,243 +1,266 @@
 import asyncio
 import logging
-from typing import List, Dict
-import fal_client
+from typing import List, Dict, Optional
+import httpx
+from ..config import get_settings
+from .task_utils import get_resolution_from_aspect_ratio
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 async def compose_final_video_with_audio(
-    composed_video_url: str, 
-    voiceover_urls: List[str], 
-    normalized_music_url: str
+    composed_video_url: str,
+    voiceover_urls: List[str],
+    normalized_music_url: str,
+    aspect_ratio: str = "9:16"
 ) -> str:
     """
-    Compose the final video with all audio tracks:
+    Compose the final video with all audio tracks using JSON2Video:
     - Main video (without audio)
     - 5 voiceovers (6 seconds each at different timestamps)
     - Background music (30 seconds at low volume)
     """
     try:
-        logger.info("COMPOSE: Starting final video composition with all audio tracks...")
-        logger.info(f"COMPOSE: Main video URL: {composed_video_url}")
-        logger.info(f"COMPOSE: Background music URL: {normalized_music_url}")
-        logger.info(f"COMPOSE: Voiceover URLs: {len(voiceover_urls)} voiceovers")
+        logger.info("COMPOSE_JSON2VIDEO: Starting final video composition with all audio tracks...")
+        logger.info(f"COMPOSE_JSON2VIDEO: Main video URL: {composed_video_url}")
+        logger.info(f"COMPOSE_JSON2VIDEO: Background music URL: {normalized_music_url}")
+        logger.info(f"COMPOSE_JSON2VIDEO: Voiceover URLs: {len(voiceover_urls)} voiceovers")
+
+        if not settings.json2video_api_key:
+            logger.error("COMPOSE_JSON2VIDEO: JSON2VIDEO_API_KEY not found")
+            return composed_video_url
 
         # Filter out empty voiceover URLs
         valid_voiceover_urls = [url for url in voiceover_urls if url]
-        logger.info(f"COMPOSE: Valid voiceovers: {len(valid_voiceover_urls)} out of {len(voiceover_urls)}")
+        logger.info(f"COMPOSE_JSON2VIDEO: Valid voiceovers: {len(valid_voiceover_urls)} out of {len(voiceover_urls)}")
 
-        # Build the tracks for composition
-        tracks = []
+        # Get dynamic resolution
+        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
+        logger.info(f"COMPOSE_JSON2VIDEO: Using resolution {width}x{height}")
 
-        # 1. Main video track (without audio)
-        video_track = {
-            "id": "video_main",
+        # Build scene elements
+        scene_elements = []
+
+        # 1. Main video (without audio)
+        scene_elements.append({
             "type": "video",
-            "keyframes": [
-                {
-                    "url": composed_video_url,
-                    "timestamp": 0,
-                    "duration": 30,
-                    "include_audio": False  # Exclude original audio
-                }
-            ]
-        }
-        tracks.append(video_track)
-        logger.info("COMPOSE: Added main video track (30s, no audio)")
+            "src": composed_video_url,
+            "start": 0,
+            "duration": 30,
+            "volume": 0,  # No audio from video
+            "resize": "cover"
+        })
+        logger.info("COMPOSE_JSON2VIDEO: Added main video (30s, no audio)")
 
-        # 2. Voiceover track (5 voiceovers at 6-second intervals)
-        if valid_voiceover_urls:
-            voiceover_keyframes = []
-            
-            for i, voiceover_url in enumerate(valid_voiceover_urls):
-                if i >= 5:  # Only use first 5 voiceovers
-                    break
-                    
-                timestamp = i * 6  # 0, 6, 12, 18, 24 seconds
-                keyframe = {
-                    "url": voiceover_url,
-                    "timestamp": timestamp,
-                    "duration": 6,
-                    "volume": 1.0  # Full volume for voiceovers
-                }
-                voiceover_keyframes.append(keyframe)
-                logger.info(f"COMPOSE: Added voiceover {i+1} at {timestamp}s")
+        # 2. Voiceovers (6 seconds each at intervals)
+        for i, voiceover_url in enumerate(valid_voiceover_urls):
+            if i >= 5:  # Only use first 5
+                break
 
-            voiceover_track = {
-                "id": "voiceover",
+            start_time = i * 6  # 0, 6, 12, 18, 24
+            scene_elements.append({
                 "type": "audio",
-                "keyframes": voiceover_keyframes
-            }
-            tracks.append(voiceover_track)
-            logger.info(f"COMPOSE: Added voiceover track with {len(voiceover_keyframes)} segments")
+                "src": voiceover_url,
+                "start": start_time,
+                "duration": 6,
+                "volume": 2  # High volume for voiceovers
+            })
+            logger.info(f"COMPOSE_JSON2VIDEO: Added voiceover {i+1} at {start_time}s")
 
-        # 3. Background music track (full 30 seconds at low volume)
+        # 3. Background music
         if normalized_music_url:
-            background_music_track = {
-                "id": "background_music",
+            scene_elements.append({
                 "type": "audio",
-                "keyframes": [
-                    {
-                        "url": normalized_music_url,
-                        "timestamp": 0,
-                        "duration": 30,
-                        "volume": 0.1  # Low volume (10%) for background music
-                    }
-                ]
-            }
-            tracks.append(background_music_track)
-            logger.info("COMPOSE: Added background music track (30s, 10% volume)")
+                "src": normalized_music_url,
+                "start": 0,
+                "duration": 30,
+                "volume": 0.2  # Low volume for background
+            })
+            logger.info("COMPOSE_JSON2VIDEO: Added background music (30s, 20% volume)")
 
-        logger.info(f"COMPOSE: Total tracks to compose: {len(tracks)}")
+        # Prepare payload
+        json_data = {
+            "resolution": "custom",
+            "width": width,
+            "height": height,
+            "scenes": [{"elements": scene_elements}]
+        }
 
-        # Submit the composition request
-        logger.info("COMPOSE: Submitting final composition request...")
-        handler = await asyncio.to_thread(
-            fal_client.submit,
-            "fal-ai/ffmpeg-api/compose",
-            arguments={
-                "compose_mode": "timeline",
-                "tracks": tracks
-            }
-        )
+        logger.info("COMPOSE_JSON2VIDEO: Sending composition request...")
 
-        logger.info("COMPOSE: Waiting for final composition result...")
-        result = await asyncio.to_thread(handler.get)
+        headers = {
+            "x-api-key": settings.json2video_api_key,
+            "Content-Type": "application/json"
+        }
 
-        # Extract the final video URL
-        if result and "video_url" in result:
-            final_video_url = result["video_url"]
-            logger.info(f"COMPOSE: Final video composition successful!")
-            logger.info(f"COMPOSE: Final video URL: {final_video_url}")
-            
-            # Log thumbnail if available
-            if "thumbnail_url" in result:
-                logger.info(f"COMPOSE: Thumbnail URL: {result['thumbnail_url']}")
-            
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://api.json2video.com/v2/movies",
+                json=json_data,
+                headers=headers
+            )
+
+        logger.info(f"COMPOSE_JSON2VIDEO: Response status: {response.status_code}")
+
+        if response.status_code != 200:
+            logger.error(f"COMPOSE_JSON2VIDEO: Request failed: {response.text}")
+            return composed_video_url
+
+        response_data = response.json()
+        project_id = response_data.get("project")
+
+        if not project_id:
+            logger.error(f"COMPOSE_JSON2VIDEO: No project ID: {response_data}")
+            return composed_video_url
+
+        logger.info(f"COMPOSE_JSON2VIDEO: Project ID: {project_id}")
+
+        # Poll for completion
+        from .json2video_composition import check_json2video_status
+        final_video_url = await check_json2video_status(project_id, max_wait_time=300)
+
+        if final_video_url:
+            logger.info(f"COMPOSE_JSON2VIDEO: Success! URL: {final_video_url}")
             return final_video_url
         else:
-            logger.error("COMPOSE: Final composition failed - no video_url in result")
-            logger.debug(f"COMPOSE: Raw result: {result}")
-            return composed_video_url  # Return original composed video as fallback
+            logger.error("COMPOSE_JSON2VIDEO: Composition failed or timed out")
+            return composed_video_url
 
     except Exception as e:
-        logger.error(f"COMPOSE: Failed to compose final video with audio: {e}")
+        logger.error(f"COMPOSE_JSON2VIDEO: Failed: {e}")
         logger.exception("Full traceback:")
-        return composed_video_url  # Return original composed video as fallback
+        return composed_video_url
 
 
 async def compose_wan_final_video_with_audio(
-    scene_clip_urls: List[str], 
-    voiceover_urls: List[str]
+    scene_clip_urls: List[str],
+    voiceover_urls: List[str],
+    aspect_ratio: str = "9:16"
 ) -> str:
     """
-    Compose the final WAN video with all audio tracks:
+    Compose the final WAN video with all audio tracks using JSON2Video:
     - 6 scene videos (5 seconds each = 30 seconds total)
     - 6 voiceovers (aligned with their respective scenes)
     """
     try:
-        logger.info("WAN_COMPOSE: Starting WAN final video composition with all audio tracks...")
-        logger.info(f"WAN_COMPOSE: Scene clip URLs: {len(scene_clip_urls)} videos")
-        logger.info(f"WAN_COMPOSE: Voiceover URLs: {len(voiceover_urls)} voiceovers")
+        logger.info("WAN_COMPOSE_JSON2VIDEO: Starting WAN final video composition...")
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Scene clips: {len(scene_clip_urls)} videos")
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Voiceovers: {len(voiceover_urls)} voiceovers")
 
-        # Filter out empty scene clip URLs
-        valid_scene_clips = [url for url in scene_clip_urls if url]
-        valid_voiceovers = [url for url in voiceover_urls if url]
-        
-        logger.info(f"WAN_COMPOSE: Valid scene clips: {len(valid_scene_clips)} out of {len(scene_clip_urls)}")
-        logger.info(f"WAN_COMPOSE: Valid voiceovers: {len(valid_voiceovers)} out of {len(voiceover_urls)}")
+        # Debug: Log all voiceover URLs
+        for i, voiceover_url in enumerate(voiceover_urls):
+            if voiceover_url:
+                logger.info(f"WAN_COMPOSE_JSON2VIDEO: Voiceover {i+1}: {voiceover_url}")
+            else:
+                logger.warning(f"WAN_COMPOSE_JSON2VIDEO: Voiceover {i+1} is empty")
 
-        if not valid_scene_clips:
-            logger.error("WAN_COMPOSE: No valid scene clips for composition")
+        if not settings.json2video_api_key:
+            logger.error("WAN_COMPOSE_JSON2VIDEO: JSON2VIDEO_API_KEY not found")
             return ""
 
-        # Build the tracks for composition
-        tracks = []
+        # Filter out empty URLs
+        valid_scene_clips = [url for url in scene_clip_urls if url]
 
-        # 1. Video track with all 6 scenes (5 seconds each)
-        video_keyframes = []
-        for i, scene_clip_url in enumerate(valid_scene_clips):
-            if i >= 6:  # Only use first 6 videos
-                break
-                
-            timestamp = i * 5  # 0, 5, 10, 15, 20, 25 seconds
-            keyframe = {
-                "url": scene_clip_url,
-                "timestamp": timestamp,
-                "duration": 5,
-                "include_audio": False  # Exclude original audio from scene clips
-            }
-            video_keyframes.append(keyframe)
-            logger.info(f"WAN_COMPOSE: Added scene {i+1} at timestamp {timestamp}s")
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Valid clips: {len(valid_scene_clips)}/{len(scene_clip_urls)}")
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Valid voiceovers: {len([v for v in voiceover_urls if v])}/{len(voiceover_urls)}")
 
-        video_track = {
-            "id": "wan_video_main",
-            "type": "video",
-            "keyframes": video_keyframes
+        if len([v for v in voiceover_urls if v]) == 0:
+            logger.error("WAN_COMPOSE_JSON2VIDEO: No valid voiceovers!")
+            logger.error(f"WAN_COMPOSE_JSON2VIDEO: Voiceover URLs: {voiceover_urls}")
+
+        if not valid_scene_clips:
+            logger.error("WAN_COMPOSE_JSON2VIDEO: No valid scene clips")
+            return ""
+
+        # Get resolution
+        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Using resolution {width}x{height}")
+
+        # Build scenes (one scene per video clip)
+        scenes = []
+
+        for i in range(min(6, len(valid_scene_clips))):
+            scene_elements = []
+
+            # Add video
+            if i < len(valid_scene_clips) and valid_scene_clips[i]:
+                scene_elements.append({
+                    "type": "video",
+                    "src": valid_scene_clips[i],
+                    "duration": 5,
+                    "volume": 0.2,  # Low volume for scene video
+                    "resize": "cover"
+                })
+                logger.info(f"WAN_COMPOSE_JSON2VIDEO: Scene {i+1} video added")
+
+            # Add voiceover
+            if i < len(voiceover_urls) and voiceover_urls[i]:
+                scene_elements.append({
+                    "type": "audio",
+                    "src": voiceover_urls[i],
+                    "start": 0,
+                    "duration": 5,
+                    "volume": 2  # High volume for voiceover
+                })
+                logger.info(f"WAN_COMPOSE_JSON2VIDEO: Scene {i+1} voiceover added")
+            else:
+                logger.warning(f"WAN_COMPOSE_JSON2VIDEO: Scene {i+1} has no voiceover")
+
+            if scene_elements:
+                scenes.append({"elements": scene_elements})
+
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Created {len(scenes)} scenes")
+
+        # Prepare payload
+        json_data = {
+            "resolution": "custom",
+            "width": width,
+            "height": height,
+            "scenes": scenes
         }
-        tracks.append(video_track)
-        logger.info(f"WAN_COMPOSE: Added main video track with {len(video_keyframes)} scenes (30s total)")
 
-        # 2. Voiceover track (6 voiceovers at 5-second intervals)
-        if valid_voiceovers:
-            voiceover_keyframes = []
-            
-            for i, voiceover_url in enumerate(valid_voiceovers):
-                if i >= 6:  # Only use first 6 voiceovers
-                    break
-                    
-                timestamp = i * 5  # 0, 5, 10, 15, 20, 25 seconds
-                keyframe = {
-                    "url": voiceover_url,
-                    "timestamp": timestamp,
-                    "duration": 5,  # Allow up to 5 seconds per voiceover
-                    "volume": 1.0  # Full volume for voiceovers
-                }
-                voiceover_keyframes.append(keyframe)
-                logger.info(f"WAN_COMPOSE: Added voiceover {i+1} at {timestamp}s")
+        logger.info("WAN_COMPOSE_JSON2VIDEO: Sending composition request...")
 
-            voiceover_track = {
-                "id": "wan_voiceover",
-                "type": "audio",
-                "keyframes": voiceover_keyframes
-            }
-            tracks.append(voiceover_track)
-            logger.info(f"WAN_COMPOSE: Added voiceover track with {len(voiceover_keyframes)} segments")
+        headers = {
+            "x-api-key": settings.json2video_api_key,
+            "Content-Type": "application/json"
+        }
 
-        logger.info(f"WAN_COMPOSE: Total tracks to compose: {len(tracks)}")
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://api.json2video.com/v2/movies",
+                json=json_data,
+                headers=headers
+            )
 
-        # Submit the composition request
-        logger.info("WAN_COMPOSE: Submitting WAN final composition request...")
-        handler = await asyncio.to_thread(
-            fal_client.submit,
-            "fal-ai/ffmpeg-api/compose",
-            arguments={
-                "compose_mode": "timeline",
-                "tracks": tracks
-            }
-        )
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Response status: {response.status_code}")
 
-        logger.info("WAN_COMPOSE: Waiting for WAN final composition result...")
-        result = await asyncio.to_thread(handler.get)
+        if response.status_code != 200:
+            logger.error(f"WAN_COMPOSE_JSON2VIDEO: Request failed: {response.text}")
+            return ""
 
-        # Extract the final video URL
-        if result and "video_url" in result:
-            final_video_url = result["video_url"]
-            logger.info(f"WAN_COMPOSE: WAN final video composition successful!")
-            logger.info(f"WAN_COMPOSE: Final video URL: {final_video_url}")
-            
-            # Log thumbnail if available
-            if "thumbnail_url" in result:
-                logger.info(f"WAN_COMPOSE: Thumbnail URL: {result['thumbnail_url']}")
-            
+        response_data = response.json()
+        project_id = response_data.get("project")
+
+        if not project_id:
+            logger.error(f"WAN_COMPOSE_JSON2VIDEO: No project ID: {response_data}")
+            return ""
+
+        logger.info(f"WAN_COMPOSE_JSON2VIDEO: Project ID: {project_id}")
+
+        # Poll for completion
+        from .json2video_composition import check_json2video_status
+        final_video_url = await check_json2video_status(project_id, max_wait_time=480)
+
+        if final_video_url:
+            logger.info(f"WAN_COMPOSE_JSON2VIDEO: Success! URL: {final_video_url}")
             return final_video_url
         else:
-            logger.error("WAN_COMPOSE: WAN final composition failed - no video_url in result")
-            logger.debug(f"WAN_COMPOSE: Raw result: {result}")
+            logger.error("WAN_COMPOSE_JSON2VIDEO: Composition failed or timed out")
             return ""
 
     except Exception as e:
-        logger.error(f"WAN_COMPOSE: Failed to compose WAN final video with audio: {e}")
+        logger.error(f"WAN_COMPOSE_JSON2VIDEO: Failed: {e}")
         logger.exception("Full traceback:")
         return ""
