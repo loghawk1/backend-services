@@ -149,8 +149,8 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
                 logger.info(f"WAN: Full scene data: {scene}")
                 
                 elevenlabs_prompt = scene.get("elevenlabs_prompt", "")
-                eleven_labs_emotion = scene.get("eleven_labs_emotion", "")
-                eleven_labs_voice_id = scene.get("eleven_labs_voice_id", "")
+                eleven_labs_emotion = scene.get("eleven_labs_emotion", "neutral")
+                eleven_labs_voice_id = scene.get("eleven_labs_voice_id", "Wise_Woman")
                 
                 logger.info(f"WAN: Scene {i+1} extracted elevenlabs_prompt: '{elevenlabs_prompt}'")
                 logger.info(f"WAN: Scene {i+1} extracted eleven_labs_emotion: '{eleven_labs_emotion}'")
@@ -188,12 +188,11 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
                     "english_normalization": False
                 }
                 
-                # Add voice_id if provided, otherwise use default
-                voice_setting["voice_id"] = eleven_labs_voice_id if eleven_labs_voice_id and eleven_labs_voice_id.strip() else "Friendly_Person"
+                # Use voice_id from scene data (already validated)
+                voice_setting["voice_id"] = eleven_labs_voice_id
                 
-                # Add emotion if provided
-                if eleven_labs_emotion and eleven_labs_emotion.strip():
-                    voice_setting["emotion"] = eleven_labs_emotion
+                # Use emotion from scene data (already validated)
+                voice_setting["emotion"] = eleven_labs_emotion
                 
                 logger.info(f"WAN: Scene {i+1} voice_setting: {voice_setting}")
 
