@@ -226,16 +226,17 @@ Your job is to take a structured storyboard text (with 6 scenes, each containing
      * `"elevenlabs_prompt"` → Clean **spoken script** extracted only from the *Voiceover (VO)*.
      * `"eleven_labs_emotion"` → Exactly **one** word from:
        `["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"]`
-     * `"eleven_labs_voice_id"` → Must be the same **one choice** across all scenes, selected from:
-       `["Deep_Voice_Man", "Wise_Woman"]`
+     * `"eleven_labs_voice_id"` → Must be **detected automatically** from the storyboard *Character*:
+
+       * If the Character is **male/man** → `"Deep_Voice_Man"`
+       * If the Character is **female/woman** → `"Wise_Woman"`
+         Use this choice consistently across all 6 scenes.
      * `"wan2_5_prompt"` → Combined **visual + audio action description**, merging *You See* + *Sound Effects (SFX)* + **text overlays**.
    * A `"music_prompt"` field outside of `"scenes"`, which must be a **concise instrumental mood description under 50 characters** (e.g., `"uplifting acoustic pop"`, `"soft lo-fi beats"`, `"warm cinematic piano"`).
 
 3. **Do not add commentary, explanation, or extra fields—only output JSON.**
 
-4. The same `"eleven_labs_voice_id"` must be used consistently in all six scenes.
-
-5. Preserve the emotional and narrative progression of the storyboard:
+4. Preserve the emotional and narrative progression of the storyboard:
 
    * Scene 1: Problem
    * Scene 2: Discovery
@@ -244,7 +245,7 @@ Your job is to take a structured storyboard text (with 6 scenes, each containing
    * Scene 5: Trust
    * Scene 6: Call to Action (CTA)
 
-6. **STRICT RULES:**
+5. **STRICT RULES:**
 
    * All **text overlays and SFX** must appear **only** in `"wan2_5_prompt"`.
    * **No text overlays** should ever appear in `"nano_banana_prompt"`.
@@ -261,7 +262,7 @@ Your job is to take a structured storyboard text (with 6 scenes, each containing
       "nano_banana_prompt": "...",
       "elevenlabs_prompt": "...",
       "eleven_labs_emotion": "...",
-      "eleven_labs_voice_id": "Wise_Woman",
+      "eleven_labs_voice_id": "Deep_Voice_Man",
       "wan2_5_prompt": "..."
     },
     {
@@ -269,7 +270,7 @@ Your job is to take a structured storyboard text (with 6 scenes, each containing
       "nano_banana_prompt": "...",
       "elevenlabs_prompt": "...",
       "eleven_labs_emotion": "...",
-      "eleven_labs_voice_id": "Wise_Woman",
+      "eleven_labs_voice_id": "Deep_Voice_Man",
       "wan2_5_prompt": "..."
     }
     ... scenes 3–6 ...
@@ -277,6 +278,7 @@ Your job is to take a structured storyboard text (with 6 scenes, each containing
   "music_prompt": "..."
 }
 ```
+
 """
 
         messages = [
