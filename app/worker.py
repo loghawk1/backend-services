@@ -183,9 +183,10 @@ async def process_video_request(ctx: Dict[str, Any], extracted_data_dict: Dict[s
         
         # Then add all audio tracks
         final_video_url = await compose_final_video_with_audio(
-            composed_video_url, 
-            voiceover_urls, 
-            normalized_music_url
+            composed_video_url,
+            voiceover_urls,
+            normalized_music_url,
+            extracted_data.aspect_ratio
         )
         
         if not final_video_url:
@@ -380,7 +381,11 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
         await update_task_progress(extracted_data.task_id, 80, "Composing final WAN video with audio")
         
         # For WAN, we compose videos + voiceovers directly (no separate composition step)
-        final_video_url = await compose_wan_final_video_with_audio(video_urls, voiceover_urls)
+        final_video_url = await compose_wan_final_video_with_audio(
+            video_urls,
+            voiceover_urls,
+            extracted_data.aspect_ratio
+        )
         
         if not final_video_url:
             error_msg = "Failed to compose final WAN video with audio tracks"
@@ -715,7 +720,11 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
         
         if workflow_type == "wan":
             # WAN composition
-            final_video_url = await compose_wan_final_video_with_audio(final_video_urls, final_voiceover_urls)
+            final_video_url = await compose_wan_final_video_with_audio(
+                final_video_urls,
+                final_voiceover_urls,
+                extracted_data.aspect_ratio
+            )
             
             # Add background music if available
             if normalized_music_url and final_video_url:
@@ -738,9 +747,10 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             
             if composed_video_url:
                 final_video_url = await compose_final_video_with_audio(
-                    composed_video_url, 
-                    final_voiceover_urls, 
-                    normalized_music_url
+                    composed_video_url,
+                    final_voiceover_urls,
+                    normalized_music_url,
+                    extracted_data.aspect_ratio
                 )
             else:
                 final_video_url = ""
