@@ -48,12 +48,12 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
                     fal_client.submit,
                     "fal-ai/lyria2",
                     arguments={
-                        "prompt": prompt,
+                        "prompt": "fast pace 30 seconds interesting ugc video background music, no vocals for beauty product",
                         "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words"
                     }
                 )
                 
-                logger.info("FAL: Waiting for music generation result (this may take 10-15 minutes)...")
+                logger.info("FAL: Waiting for music generation result (this may take 2-3 minutes)...")
                 
                 # Add timeout for the result waiting
                 result = await asyncio.wait_for(
