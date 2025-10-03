@@ -46,38 +46,33 @@ async def send_video_callback(
         if is_revision:
             # Revision callback payload
             payload = {
+                "video_url": final_video_url,
                 "video_id": video_id,
                 "chat_id": chat_id,
-                "video_url": final_video_url,
+                "user_id": user_id,
+                "status": "completed",
                 "is_revision": True
             }
         else:
-            # Regular callback payload (include both video_id and videoId for compatibility)
+            # Regular callback payload - match n8n test structure exactly
             payload = {
                 "video_url": final_video_url,
-                "video_id": video_id,   # snake_case
-                "videoId": video_id,    # camelCase fallback
+                "video_id": video_id,
                 "chat_id": chat_id,
-                "user_id": user_id
+                "user_id": user_id,
+                "status": "completed",      # ✅ Added
+                "is_revision": False        # ✅ Added explicitly
             }
         
         callback_type = "revision" if is_revision else "regular"
         logger.info(f"CALLBACK: Sending {callback_type} callback with JSON payload...")
         logger.info(f"CALLBACK: Payload: {payload}")
         
-        # Prepare headers with authentication
-        headers = {
-            "User-Agent": "FastAPI-Video-Processor/1.0",
-            "Content-Type": "application/json",
-            "Base44-App-Id": settings.base44_app_id
-        }
-        
-        # Send POST request with JSON payload
+        # Send POST request with JSON payload (no custom headers needed)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                json=payload,  # ✅ JSON instead of form-data
-                headers=headers
+                json=payload
             )
         
         # Log response details
@@ -136,35 +131,24 @@ async def send_error_callback(
         # Use static callback URL (ignore provided callback_url parameter)
         endpoint_url = "https://base44.app/api/apps/68b4aa46f5d6326ab93c3ed0/functions/n8nVideoCallback"
         
-        # Prepare error JSON payload
+        # Prepare error JSON payload - match structure with status field
         payload = {
             "error": error_message,
-            "video_id": video_id,   # snake_case
+            "video_id": video_id,
             "chat_id": chat_id,
             "user_id": user_id,
+            "status": "failed",         # ✅ Explicit failed status
+            "is_revision": is_revision  # ✅ Always include this field
         }
-        
-        # Add is_revision field if this is a revision error
-        if is_revision:
-            payload["is_revision"] = True
-        else:
-            payload["videoId"] = video_id  # camelCase fallback for regular videos
-            payload["status"] = "failed"
         
         logger.info("CALLBACK: Sending error notification...")
+        logger.info(f"CALLBACK: Payload: {payload}")
         
-        # Prepare headers with authentication
-        headers = {
-            "User-Agent": "FastAPI-Video-Processor/1.0",
-            "Content-Type": "application/json",
-            "Base44-App-Id": settings.base44_app_id
-        }
-        
+        # Send POST request with JSON payload (no custom headers needed)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 endpoint_url,
-                json=payload,  # ✅ JSON instead of form-data
-                headers=headers
+                json=payload
             )
             
             if response.status_code == 200:
@@ -172,6 +156,7 @@ async def send_error_callback(
                 return True
             else:
                 logger.error(f"CALLBACK: Error callback failed with status {response.status_code}")
+                logger.error(f"CALLBACK: Response content: {response.text}")
                 return False
                 
     except Exception as e:
