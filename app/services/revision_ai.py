@@ -43,12 +43,23 @@ async def compare_scenes_for_changes(original_scenes: List[Dict], revised_scenes
             original_voiceover_prompt = original_scene.get("vioce_over", "").strip()
             revised_voiceover_prompt = revised_scene.get("vioce_over", "").strip()
             
+            # Extract voice settings for comparison
+            original_emotion = original_scene.get("eleven_labs_emotion", "neutral").strip()
+            revised_emotion = revised_scene.get("eleven_labs_emotion", "neutral").strip()
+            
+            original_voice_id = original_scene.get("eleven_labs_voice_id", "Wise_Woman").strip()
+            revised_voice_id = revised_scene.get("eleven_labs_voice_id", "Wise_Woman").strip()
+            
             original_video_prompt = original_scene.get("visual_description", "").strip()
             revised_video_prompt = revised_scene.get("visual_description", "").strip()
             
             # Determine what needs regeneration
             image_needs_regen = original_image_prompt != revised_image_prompt
-            voiceover_needs_regen = original_voiceover_prompt != revised_voiceover_prompt
+            voiceover_needs_regen = (
+                original_voiceover_prompt != revised_voiceover_prompt or
+                original_emotion != revised_emotion or
+                original_voice_id != revised_voice_id
+            )
             
             # Video needs regeneration if either the video prompt OR the image prompt changed
             # (since video is generated from the image)
@@ -69,6 +80,8 @@ async def compare_scenes_for_changes(original_scenes: List[Dict], revised_scenes
                 "original_video_url": original_video_url,
                 "revised_image_prompt": revised_image_prompt,
                 "revised_voiceover_prompt": revised_voiceover_prompt,
+                "revised_emotion": revised_emotion,
+                "revised_voice_id": revised_voice_id,
                 "revised_video_prompt": revised_video_prompt
             }
             
@@ -80,6 +93,10 @@ async def compare_scenes_for_changes(original_scenes: List[Dict], revised_scenes
                 regen_items.append("image")
             if voiceover_needs_regen:
                 regen_items.append("voiceover")
+                if original_emotion != revised_emotion:
+                    logger.info(f"REVISION_COMPARE: Scene {scene_number} emotion changed: {original_emotion} → {revised_emotion}")
+                if original_voice_id != revised_voice_id:
+                    logger.info(f"REVISION_COMPARE: Scene {scene_number} voice changed: {original_voice_id} → {revised_voice_id}")
             if video_needs_regen:
                 regen_items.append("video")
             
@@ -141,17 +158,29 @@ async def generate_revised_wan_scenes_with_gpt4(
                 "scene_number": scene.get("scene_number", 1),
                 "nano_banana_prompt": scene.get("image_prompt", ""),  # Map back from image_prompt
                 "elevenlabs_prompt": scene.get("vioce_over", ""),     # Map back from vioce_over
+                "eleven_labs_emotion": scene.get("eleven_labs_emotion", "neutral"),  # Include emotion
+                "eleven_labs_voice_id": scene.get("eleven_labs_voice_id", "Wise_Woman"),  # Include voice ID
                 "wan2_5_prompt": scene.get("visual_description", "") # Map back from visual_description
             }
             wan_scenes_for_ai.append(wan_scene_data)
             logger.info(f"WAN_REVISION_AI: Original WAN Scene {wan_scene_data['scene_number']}: {wan_scene_data['nano_banana_prompt'][:50]}...")
+            logger.info(f"WAN_REVISION_AI: Original WAN Scene {wan_scene_data['scene_number']} - Voice: {wan_scene_data['eleven_labs_voice_id']}, Emotion: {wan_scene_data['eleven_labs_emotion']}")
 
         system_prompt = """You are an expert AI WAN video revision specialist that processes user revision requests with surgical precision for WAN 2.5 workflow.
 
 CRITICAL WAN DATABASE FIELD MAPPING:
 - nano_banana_prompt: Image generation prompt for Nano Banana (stored as image_prompt in DB)
 - elevenlabs_prompt: Voice generation prompt for ElevenLabs (stored as vioce_over in DB)
+- eleven_labs_emotion: Emotion for voiceover generation (stored as eleven_labs_emotion in DB)
+- eleven_labs_voice_id: Voice ID for voiceover generation (stored as eleven_labs_voice_id in DB)
 - wan2_5_prompt: Video animation prompt for WAN 2.5 (stored as visual_description in DB)
+
+VOICE AND EMOTION CONSTRAINTS:
+- eleven_labs_emotion MUST be one of: ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"]
+- eleven_labs_voice_id MUST be one of: ["Deep_Voice_Man", "Wise_Woman"]
+- PRESERVE original voice_id and emotion unless user explicitly requests a change
+- If user says they don't like the voice, suggest the available voice options
+- If user mentions emotion changes, use the allowed emotion list
 
 MUSIC HANDLING INTELLIGENCE (ENHANCED):
 - If user mentions "no music", "missing music", "add music", "needs music", "without music", "no sound", "silent", "quiet", "muted" → AUTOMATICALLY generate new background music
@@ -168,12 +197,15 @@ WAN REVISION ANALYSIS PROTOCOL:
 2. PARSE USER INTENT with extreme precision for WAN workflow:
    - "image", "background", "lighting", "scene", "visual", "appearance" → ONLY nano_banana_prompt
    - "voice", "speech", "narration", "dialogue", "says", "talks" → ONLY elevenlabs_prompt
+   - "voice change", "different voice", "don't like voice", "change speaker" → ONLY eleven_labs_voice_id (suggest available options)
+   - "emotion", "tone", "feeling", "mood of voice", "sound more", "less energetic" → ONLY eleven_labs_emotion
    - "movement", "motion", "action", "camera", "animation", "video" → ONLY wan2_5_prompt
    - Scene numbers (1-6) → Target ONLY that specific scene
    - "all scenes", "entire video", "everything" → Apply to ALL 6 scenes
 
 3. FIELD PRESERVATION RULE (REFINED):
    - If a field is NOT mentioned in the revision request → Return EXACT original value
+   - ESPECIALLY preserve eleven_labs_voice_id and eleven_labs_emotion unless explicitly mentioned
    - If a field IS mentioned → Update according to user's specific request
    - EXCEPTION: If a quality issue is detected, proactively improve relevant prompts to fix the issue
    - MINIMAL NECESSARY CHANGE: Only make the minimum required adjustments to fulfill the request and fix identified issues
@@ -188,6 +220,7 @@ WAN REVISION ANALYSIS PROTOCOL:
 5. CHANGE SCOPE DETECTION:
    - SPECIFIC: "change scene 3's background" → Only scene 3, only nano_banana_prompt
    - GLOBAL: "make all voices more energetic" → All 6 scenes, only elevenlabs_prompt
+   - VOICE SPECIFIC: "use a different voice" → All 6 scenes, only eleven_labs_voice_id (suggest options)
    - TARGETED: "the woman should move slower" → Find scene with woman, update ONLY wan2_5_prompt
 
 6. WAN-SPECIFIC INTELLIGENCE (ENHANCED):
@@ -199,6 +232,9 @@ WAN REVISION ANALYSIS PROTOCOL:
      * Should NOT contain: static visual descriptions (those belong in nano_banana_prompt)
    - Understand that elevenlabs_prompt creates the voiceover
      * Should contain: spoken dialogue, narration text, delivery style
+   - Understand that eleven_labs_emotion and eleven_labs_voice_id control voice characteristics
+     * Must use exact values from allowed lists
+     * Should remain consistent unless user requests changes
    - Keep prompts concise and AI-model-friendly
    - Maintain UGC aesthetic and low-fi style
    - When fixing quality issues, add specific guidance to prevent the problem from recurring
@@ -210,6 +246,11 @@ WAN REVISION ANALYSIS PROTOCOL:
    - Add negative constraints: "no distortion", "no awkward bending", "no stiff animation"
    - Example: For "man running bent" → Update wan2_5_prompt to include "natural running motion, fluid movement, no distortion, realistic posture"
 FORBIDDEN BEHAVIORS:
+8. VOICE AND EMOTION HANDLING:
+   - If user expresses dissatisfaction with voice: "Available voices are Deep_Voice_Man and Wise_Woman. Which would you prefer?"
+   - If user requests emotion change: Use exact emotion from ["happy", "sad", "angry", "fearful", "disgusted", "surprised", "neutral"]
+   - Maintain voice consistency across all 6 scenes unless user specifies different voices for different scenes
+   - Preserve original voice settings if not mentioned in revision request
 - NEVER change unmentioned fields "for consistency"
 - NEVER make "improvements" not requested by user
 - NEVER assume related changes across different prompt types
@@ -217,9 +258,10 @@ FORBIDDEN BEHAVIORS:
 - NEVER make prompts overly complex or lengthy
 - NEVER introduce new visual elements, characters, or objects not present in the original scene or explicitly requested
 - NEVER make changes that contradict the core product or message of the video
+- NEVER use voice_id or emotion values outside the allowed lists
+- NEVER change voice settings without user request
 
 OUTPUT REQUIREMENTS:
-- Always return exactly 6 WAN scenes
 - Always include all 3 fields for each scene: nano_banana_prompt, elevenlabs_prompt, wan2_5_prompt
 - Preserve original values for unchanged fields EXACTLY (no paraphrasing)
 - Only modify fields explicitly or implicitly targeted by the revision request
@@ -227,10 +269,7 @@ OUTPUT REQUIREMENTS:
 
 EXAMPLE MAPPINGS:
 - "make the character move slower" → Find scene with character, update ONLY wan2_5_prompt
-- "change the background to a kitchen" → Update ONLY nano_banana_prompt in relevant scenes
-- "the woman should sound more excited" → Find scene with woman, update ONLY elevenlabs_prompt
 - "add more camera movement to scene 2" → Scene 2 only, update ONLY wan2_5_prompt
-- "make all voices calmer" → Update ONLY elevenlabs_prompt in ALL 6 scenes
 
 Output format (JSON only, no explanations or markdown):
 {
@@ -239,6 +278,8 @@ Output format (JSON only, no explanations or markdown):
       "scene_number": 1,
       "nano_banana_prompt": "...",
       "elevenlabs_prompt": "...",
+      "eleven_labs_emotion": "...",
+      "eleven_labs_voice_id": "...",
       "wan2_5_prompt": "..."
     },
     ...
@@ -316,7 +357,7 @@ INSTRUCTIONS:
 
         # Validate each WAN scene has required fields
         for i, scene in enumerate(revised_wan_scenes):
-            required_fields = ["scene_number", "nano_banana_prompt", "elevenlabs_prompt", "wan2_5_prompt"]
+            required_fields = ["scene_number", "nano_banana_prompt", "elevenlabs_prompt", "eleven_labs_emotion", "eleven_labs_voice_id", "wan2_5_prompt"]
             for field in required_fields:
                 if field not in scene:
                     logger.error(f"WAN_REVISION_AI: WAN Scene {i+1} missing required field: {field}")
@@ -330,6 +371,8 @@ INSTRUCTIONS:
                 "image_prompt": wan_scene.get("nano_banana_prompt", ""),     # Map to image_prompt
                 "visual_description": wan_scene.get("wan2_5_prompt", ""),   # Map to visual_description
                 "vioce_over": wan_scene.get("elevenlabs_prompt", ""),       # Map to vioce_over
+                "eleven_labs_emotion": wan_scene.get("eleven_labs_emotion", "neutral"),  # Map emotion
+                "eleven_labs_voice_id": wan_scene.get("eleven_labs_voice_id", "Wise_Woman"),  # Map voice ID
                 "sound_effects": "",  # WAN workflow doesn't use separate sound effects
                 "music_direction": "" # WAN workflow doesn't use separate music direction
             }
@@ -339,6 +382,7 @@ INSTRUCTIONS:
         for i, scene in enumerate(database_format_scenes, 1):
             nano_prompt = scene.get('image_prompt', '')[:50] + "..."
             logger.info(f"WAN_REVISION_AI: Revised WAN Scene {i}: {nano_prompt}")
+            logger.info(f"WAN_REVISION_AI: Revised WAN Scene {i} - Voice: {scene.get('eleven_labs_voice_id')}, Emotion: {scene.get('eleven_labs_emotion')}")
 
         # Return both scenes and music generation flag
         return database_format_scenes, mentions_missing_music
