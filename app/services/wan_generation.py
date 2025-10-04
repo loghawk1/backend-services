@@ -35,7 +35,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": f"{nano_banana_prompt},Authentic UGC style video, shot on smartphone, natural lighting, a bit shaky, no professional camera look.",
+                        "prompt": f"{nano_banana_prompt},Authentic UGC style video, shot on smartphone, natural lighting, a bit shaky, no professional camera look. Please generate a still image with a fixed, locked composition (Static Shot), keeping the main subject perfectly centered. The camera must not move. The image must use a full Vertical 9:16 aspect ratio. The technical quality should be ultra-high fidelity, sharp, and hyper-realistic (8K level). Use soft, consistent natural lighting throughout. Crucially, this image must be completely clean—explicitly exclude all digital noise, grain, blurriness, or visual artifacts. Finally, ensure all anatomy is correct (e.g., no distorted hands or faces).",
                         "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg",
@@ -356,7 +356,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     fal_client.submit,
                     "fal-ai/wan-25-preview/image-to-video",
                     arguments={
-                        "prompt": f"{wan2_5_prompt}, Engaging, yet natural movement. Subtle camera shifts like organic pans or gentle pushes. Focus on subject's actions with enhanced, but believable energy. Avoid overly cinematic or overly shaky effects.",
+                        "prompt": f"{wan2_5_prompt}, Engaging, yet natural movement. Subtle camera shifts like organic pans or gentle pushes. Focus on subject's actions with enhanced, but believable energy. Avoid overly cinematic or overly shaky effects. When animating the clean source image, apply the conversion-optimized UGC Low-Fi aesthetic filter. Set the video frame rate to 10 FPS (using Posterize Time) to achieve a deliberately unpolished, non-cinematic look. Aggressively add High Grain/Noise and enforce Low Contrast, simulating the texture of heavy H.264 social media compression. Ensure the final output is in the Vertical 9:16 aspect ratio, and confirm the pacing uses L-Cuts for fluid dialogue transitions and features mandatory UGC-style captions on screen",
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
