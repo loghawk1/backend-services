@@ -35,7 +35,7 @@ async def generate_wan_scene_images_with_fal(nano_banana_prompts: List[str], bas
                     fal_client.submit,
                     "fal-ai/gemini-25-flash-image/edit",
                     arguments={
-                        "prompt": f"{nano_banana_prompt}, UGC authentic style. Fixed camera, static shot, locked composition, single subject centered. Low fidelity, hyper-realism, -(Exclude poor anatomy, fused fingers, distorted face).",
+                        "prompt": f"{nano_banana_prompt},Authentic UGC style video, shot on smartphone, natural lighting, a bit shaky, no professional camera look.",
                         "image_urls": [base_image_url],
                         "num_images": 1,
                         "output_format": "jpeg",
@@ -356,7 +356,7 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
                     fal_client.submit,
                     "fal-ai/wan-25-preview/image-to-video",
                     arguments={
-                        "prompt": f"{wan2_5_prompt}, Mandatory Aesthetic for 100% Authentic UGC look:Low-Fidelity (Low-Fi). Mobile camera simulation. Natural lighting. Mandatory 10 FPS (Posterize Time). High Grain/Noise (35%). Low Contrast. Simulate H.264 compression look.Aggressive hard cuts.UGC Style captions on screen.",
+                        "prompt": f"{wan2_5_prompt}, Engaging, yet natural movement. Subtle camera shifts like organic pans or gentle pushes. Focus on subject's actions with enhanced, but believable energy. Avoid overly cinematic or overly shaky effects.",
                         "image_url": image_url,
                         "resolution": "480p",
                         "duration": "5",  # 5 seconds per scene
