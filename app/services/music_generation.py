@@ -48,7 +48,7 @@ async def generate_background_music_with_fal(music_prompts: List[str]) -> str:
                     fal_client.submit,
                     "fal-ai/lyria2",
                     arguments={
-                        "prompt": "fast pace 30 seconds interesting ugc video background music, no vocals for beauty product",
+                        "prompt": "fast pace 30 seconds background music for high converting tiktok ad, no vocals, high energy, attention grabbing, first 5 seconds must start with strong hook",
                         "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words"
                     }
                 )
@@ -135,7 +135,7 @@ async def generate_wan_background_music_with_fal(music_prompt: str) -> str:
                     fal_client.submit,
                     "fal-ai/lyria2",
                     arguments={
-                        "prompt": "fast pace 30 seconds interesting ugc video background music, no vocals for beauty product",
+                        "prompt": "fast pace 30 seconds background music for high converting tiktok ad, no vocals, high energy, attention grabbing, first 5 seconds must start with strong hook",
                         "negative_prompt": "vocals, slow tempo, speech, talking, singing, lyrics, words, violence, adult themes, negativity"
                     }
                 )
