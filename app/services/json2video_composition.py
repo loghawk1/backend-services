@@ -192,7 +192,7 @@ async def compose_final_video_with_music_json2video(
                 "src": music_url,
                 "start": 0,
                 "duration": 30,  # 30 seconds background music
-                "volume": 1  # Low volume for background music
+                "volume": 5  # Low volume for background music
             }
         ]
         
