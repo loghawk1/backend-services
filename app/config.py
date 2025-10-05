@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     fal_key: str = ""
     openai_api_key: str = ""
     json2video_api_key: str = ""
+    dashscope_api_key: str = ""
 
     # Supabase Configuration
     supabase_url: str = ""

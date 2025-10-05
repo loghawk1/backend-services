@@ -2,6 +2,10 @@ import asyncio
 import logging
 from typing import List, Dict
 import fal_client
+from http import HTTPStatus
+from dashscope import VideoSynthesis
+import dashscope
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -327,94 +331,95 @@ async def generate_wan_voiceovers_with_fal(wan_scenes: List[Dict]) -> List[str]:
 
 
 async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_prompts: List[str]) -> List[str]:
-    """Generate videos from scene images using fal.ai WAN 2.5 based on wan2_5_prompts"""
+    """Generate videos from scene images using Alibaba DashScope WAN 2.2 i2v-plus based on wan2_5_prompts"""
     try:
-        logger.info(f"WAN: Starting video generation for {len(scene_image_urls)} scene images...")
-        
-        # Initialize results list
-        video_urls = [""] * len(scene_image_urls)
-        handlers = []
+        settings = get_settings()
+        dashscope.base_http_api_url = 'https://dashscope-intl.aliyuncs.com/api/v1'
 
-        # Phase 1: Submit all video requests concurrently
-        logger.info("WAN: Phase 1 - Submitting all video generation requests...")
-        
+        logger.info(f"WAN: Starting video generation for {len(scene_image_urls)} scene images using DashScope WAN 2.2...")
+
+        video_urls = [""] * len(scene_image_urls)
+        task_data = []
+
+        logger.info("WAN: Phase 1 - Submitting all video generation requests to DashScope...")
+
         for i, image_url in enumerate(scene_image_urls):
             try:
                 if not image_url or i >= len(wan2_5_prompts):
                     logger.warning(f"WAN: Missing image URL or wan2_5_prompt for scene {i+1}")
-                    handlers.append(None)
+                    task_data.append(None)
                     continue
 
                 wan2_5_prompt = wan2_5_prompts[i] if wan2_5_prompts[i] else "Animate the static image with subtle movement and UGC-style camera work."
 
                 logger.info(f"WAN: Submitting video request for scene {i+1}...")
                 logger.info(f"WAN: Image URL: {image_url}")
-                logger.info(f"WAN: WAN 2.5 prompt: {wan2_5_prompt[:100]}...")
+                logger.info(f"WAN: WAN 2.2 prompt: {wan2_5_prompt[:100]}...")
 
-                # Submit video generation request using WAN 2.5
-                handler = await asyncio.to_thread(
-                    fal_client.submit,
-                    "fal-ai/wan-25-preview/image-to-video",
-                    arguments={
-                        "prompt": f"{wan2_5_prompt},Engaging, yet natural movement. Subtle camera shifts like organic pans or gentle pushes. Focus on subject's actions with enhanced, but believable energy. Avoid overly cinematic or overly shaky effects. When animating the clean source image, apply the conversion-optimized UGC Low-Fi aesthetic filter. Set the video to achieve a deliberately unpolished, non-cinematic look. Aggressively add High Grain/Noise and enforce Low Contrast, simulating the texture of heavy H.264 social media compression and features mandatory UGC-style captions on screen",
-                        "image_url": image_url,
-                        "resolution": "480p",
-                        "duration": "5",  # 5 seconds per scene
-                        "negative_prompt": "professional filming, cinematic production, color grading, high saturation, soft cinematic focus, perfect lighting, 24fps, ultra smooth movement, stabilized shot, studio setup, uncanny valley, stiff movement, fake hands, deformed, aggressive saleswoman, corporate ad, stock footage, watermark, signature, blurry faces. Short sfx, melody background music, loud sfx, people speaking, unrealistic, unrelated sfx, voiceover, slow movements",
-                        "enable_prompt_expansion": True
-                    }
+                full_prompt = f"{wan2_5_prompt},Engaging, yet natural movement. Subtle camera shifts like organic pans or gentle pushes. Focus on subject's actions with enhanced, but believable energy. Avoid overly cinematic or overly shaky effects. When animating the clean source image, apply the conversion-optimized UGC Low-Fi aesthetic filter. Set the video to achieve a deliberately unpolished, non-cinematic look. Aggressively add High Grain/Noise and enforce Low Contrast, simulating the texture of heavy H.264 social media compression and features mandatory UGC-style captions on screen"
+
+                rsp = await asyncio.to_thread(
+                    VideoSynthesis.async_call,
+                    api_key=settings.dashscope_api_key,
+                    model='wan2.2-i2v-plus',
+                    prompt=full_prompt,
+                    resolution="1080P",
+                    img_url=image_url
                 )
 
-                handlers.append(handler)
-                logger.info(f"WAN: Scene {i+1} video request submitted successfully")
+                if rsp.status_code == HTTPStatus.OK:
+                    task_id = rsp.output.task_id
+                    task_data.append({'task_id': task_id, 'response': rsp})
+                    logger.info(f"WAN: Scene {i+1} video request submitted successfully, task_id: {task_id}")
+                else:
+                    logger.error(f"WAN: Failed to submit video request for scene {i+1}: status_code={rsp.status_code}, code={rsp.code}, message={rsp.message}")
+                    task_data.append(None)
 
             except Exception as e:
                 logger.error(f"WAN: Failed to submit video request for scene {i+1}: {e}")
-                handlers.append(None)
+                logger.exception(f"WAN: Exception details for scene {i+1}:")
+                task_data.append(None)
 
-        logger.info(f"WAN: Submitted {len([h for h in handlers if h])} out of {len(scene_image_urls)} video requests")
+        successful_submissions = len([t for t in task_data if t])
+        logger.info(f"WAN: Submitted {successful_submissions} out of {len(scene_image_urls)} video requests to DashScope")
 
-        # Phase 2: Wait for all results concurrently
-        logger.info("WAN: Phase 2 - Waiting for all video generation results...")
+        logger.info("WAN: Phase 2 - Waiting for all video generation results from DashScope...")
 
-        async def get_video_result(handler, scene_index):
-            """Get result from a single video generation handler"""
-            if not handler:
+        async def get_video_result(task_info, scene_index):
+            """Get result from a single DashScope video generation task"""
+            if not task_info:
                 return scene_index, ""
 
             try:
-                logger.info(f"WAN: Waiting for scene {scene_index + 1} video result...")
-                result = await asyncio.to_thread(handler.get)
+                logger.info(f"WAN: Waiting for scene {scene_index + 1} video result (task_id: {task_info['task_id']})...")
 
-                if result and "video" in result and "url" in result["video"]:
-                    video_url = result["video"]["url"]
-                    logger.info(f"WAN: Scene {scene_index + 1} video generated: {video_url}")
+                result = await asyncio.to_thread(VideoSynthesis.wait, task_info['response'])
+
+                if result.status_code == HTTPStatus.OK:
+                    video_url = result.output.video_url
+                    logger.info(f"WAN: Scene {scene_index + 1} video generated successfully: {video_url}")
                     return scene_index, video_url
                 else:
-                    logger.error(f"WAN: No video generated for scene {scene_index + 1}")
-                    logger.debug(f"WAN: Raw result: {result}")
+                    logger.error(f"WAN: No video generated for scene {scene_index + 1}: status_code={result.status_code}, code={result.code}, message={result.message}")
                     return scene_index, ""
 
             except Exception as e:
                 logger.error(f"WAN: Failed to get video result for scene {scene_index + 1}: {e}")
+                logger.exception(f"WAN: Exception details for scene {scene_index + 1}:")
                 return scene_index, ""
 
-        # Create tasks for all handlers
         tasks = []
-        for i, handler in enumerate(handlers):
-            task = get_video_result(handler, i)
+        for i, task_info in enumerate(task_data):
+            task = get_video_result(task_info, i)
             tasks.append(task)
 
-        # Wait for all results with timeout
         logger.info(f"WAN: Waiting for {len(tasks)} video generation tasks to complete...")
         try:
-            # Add timeout to prevent hanging (videos take longer)
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True),
-                timeout=1800  # 30 minutes timeout for video generation
+                timeout=1800
             )
 
-            # Process results
             for result in results:
                 if isinstance(result, Exception):
                     logger.error(f"WAN: Video generation task failed: {result}")
@@ -425,12 +430,10 @@ async def generate_wan_videos_with_fal(scene_image_urls: List[str], wan2_5_promp
 
         except asyncio.TimeoutError:
             logger.error("WAN: Video generation timed out after 30 minutes")
-            # Continue with whatever results we have
 
         successful_videos = len([url for url in video_urls if url])
-        logger.info(f"WAN: Generated {successful_videos} out of {len(scene_image_urls)} videos successfully")
+        logger.info(f"WAN: Generated {successful_videos} out of {len(scene_image_urls)} videos successfully using DashScope WAN 2.2")
 
-        # Log final results
         for i, url in enumerate(video_urls):
             if url:
                 logger.info(f"WAN: Scene {i+1} final video URL: {url}")
