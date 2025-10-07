@@ -19,8 +19,12 @@ class Settings(BaseSettings):
     # External API Keys
     fal_key: str = ""
     openai_api_key: str = ""
-    json2video_api_key: str = ""
+    json2video_api_key: str = ""  # Deprecated - kept for backward compatibility
     dashscope_api_key: str = ""
+
+    # FFmpeg Video Processing API Configuration
+    ffmpeg_api_base_url: str = "https://fantastic-endurance-production.up.railway.app"
+    ffmpeg_api_key: str = ""  # Optional - for future authentication
 
     # Supabase Configuration
     supabase_url: str = ""

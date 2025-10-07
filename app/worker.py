@@ -398,10 +398,10 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             logger.info("WAN_PIPELINE: Step 8 - Adding background music to WAN video...")
             await update_task_progress(extracted_data.task_id, 85, "Adding background music to WAN video")
             
-            from .services.json2video_composition import compose_final_video_with_music_json2video
-            final_video_with_music = await compose_final_video_with_music_json2video(
-                final_video_url, 
-                normalized_music_url, 
+            from .services.json2video_composition import compose_final_video_with_music_ffmpeg
+            final_video_with_music = await compose_final_video_with_music_ffmpeg(
+                final_video_url,
+                normalized_music_url,
                 extracted_data.aspect_ratio
             )
             
@@ -730,10 +730,10 @@ async def process_video_revision(ctx: Dict[str, Any], extracted_data_dict: Dict[
             if normalized_music_url and final_video_url:
                 logger.info("REVISION_PIPELINE: Adding background music to WAN revision video...")
                 
-                from .services.json2video_composition import compose_final_video_with_music_json2video
-                final_video_with_music = await compose_final_video_with_music_json2video(
-                    final_video_url, 
-                    normalized_music_url, 
+                from .services.json2video_composition import compose_final_video_with_music_ffmpeg
+                final_video_with_music = await compose_final_video_with_music_ffmpeg(
+                    final_video_url,
+                    normalized_music_url,
                     extracted_data.aspect_ratio
                 )
                 
