@@ -1,298 +1,214 @@
+import os
+import uuid
 import asyncio
 import logging
-import httpx
+import requests
+import whisper
+import subprocess
 from typing import Optional
-from ..config import get_settings
-from .task_utils import get_resolution_from_aspect_ratio
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
-async def create_video_with_captions(video_url: str, aspect_ratio: str = "9:16") -> Optional[str]:
-    """
-    Create a new video rendering job with captions using JSON2Video API.
-    
-    Args:
-        video_url: The source video URL from final composition
-        aspect_ratio: Video aspect ratio (e.g., "9:16", "16:9", "1:1", "3:4", "4:3")
-        
-    Returns:
-        project_id (string) if successful, None if failed
-    """
+
+def download_video(video_url: str, output_path: str) -> bool:
+    """Download video from a URL."""
     try:
-        logger.info("CAPTIONS: Starting video caption creation...")
-        logger.info(f"CAPTIONS: Source video URL: {video_url}")
-        
-        if not settings.json2video_api_key:
-            logger.error("CAPTIONS: JSON2VIDEO_API_KEY not found in environment variables")
-            logger.error("CAPTIONS: Please set JSON2VIDEO_API_KEY in your environment")
-            return None
-        
-        # Log API key status (masked for security)
-        api_key_preview = settings.json2video_api_key[:8] + "..." if len(settings.json2video_api_key) > 8 else "SHORT_KEY"
-        logger.info(f"CAPTIONS: Using API key: {api_key_preview}")
-        
-        # Get dynamic resolution based on aspect ratio
-        width, height = get_resolution_from_aspect_ratio(aspect_ratio)
-        logger.info(f"CAPTIONS: Using resolution {width}x{height} for aspect ratio {aspect_ratio}")
-        
-        headers = {
-            "x-api-key": settings.json2video_api_key,
-            "Content-Type": "application/json"
-        }
-        
-        # Enhanced payload with better subtitle settings
-        payload = {
-            "id": f"caption_job_{hash(video_url) % 1000000}",  # Unique ID based on video URL
-            "resolution": "custom",
-            "quality": "high",
-            "width": width,
-            "height": height,
-            "scenes": [
-                {
-                    "id": f"scene_{hash(video_url) % 1000000}",
-                    "comment": "Scene 1 with captions",
-                    "elements": [
-                        {
-                            "id": f"video_{hash(video_url) % 1000000}",
-                            "type": "video",
-                            "src": video_url,
-                            "fit": "cover",
-                            "position": "center",
-                            "x": 0,
-                            "y": 0,
-                            "width": width,
-                            "height": height
-                        },
-                        {
-                            "id": f"subtitles_{hash(video_url) % 1000000}",
-                            "type": "subtitles",
-                            "settings": {
-                                "style": "classic",
-                                "font-family": "Nunito",
-                                "font-size": 70,
-                                "word-color": "#FFFFFF",
-                                "line-color": "#FFFFFF",
-                                "shadow-color": "#000000",
-                                "shadow-offset": 2,
-                                "outline-width": 3,
-                                "outline-color": "#000000",
-                                "max-words-per-line": 3,
-                                "position": "custom",
-                                "x": width // 2,  # Center horizontally
-                                "y": 1400  # Position near bottom with offset
-                            },
-                            "language": "en"
-                        }
-                    ]
-                }
+        logger.info(f"CAPTIONS: Downloading video from {video_url}")
+        response = requests.get(video_url, stream=True, timeout=300)
+        response.raise_for_status()
+
+        with open(output_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        logger.info(f"CAPTIONS: Download complete - {output_path}")
+        return True
+    except Exception as e:
+        logger.error(f"CAPTIONS: Download failed - {e}")
+        return False
+
+
+def transcribe_audio(video_path: str, model_size: str = "small") -> Optional[list]:
+    """Transcribe audio from video using Whisper."""
+    try:
+        logger.info(f"CAPTIONS: Loading Whisper model ({model_size})...")
+        model = whisper.load_model(model_size)
+
+        logger.info("CAPTIONS: Transcribing audio...")
+        result = model.transcribe(video_path)
+
+        segments = result.get("segments", [])
+        logger.info(f"CAPTIONS: Transcription complete - {len(segments)} segments")
+        return segments
+    except Exception as e:
+        logger.error(f"CAPTIONS: Transcription failed - {e}")
+        return None
+
+
+def write_srt(subtitles: list, max_words_per_line: int = 3) -> str:
+    """Convert Whisper segments into .srt subtitle format."""
+    try:
+        srt_output = []
+        counter = 1
+
+        for seg in subtitles:
+            start = seg.get("start", 0)
+            end = seg.get("end", 0)
+            text = seg.get("text", "").strip()
+
+            if not text:
+                continue
+
+            words = text.split()
+            duration = end - start
+
+            chunks = [text] if len(words) <= max_words_per_line else [
+                " ".join(words[i:i + max_words_per_line])
+                for i in range(0, len(words), max_words_per_line)
             ]
-        }
-        
-        logger.info("CAPTIONS: Sending request to JSON2Video API...")
-        logger.info(f"CAPTIONS: Payload size: {len(str(payload))} characters")
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    "https://api.json2video.com/v2/movies",
-                    headers=headers,
-                    json=payload
+
+            chunk_duration = duration / len(chunks) if chunks else duration
+
+            def fmt_time(t):
+                h, rem = divmod(t, 3600)
+                m, s = divmod(rem, 60)
+                ms = int((s - int(s)) * 1000)
+                return f"{int(h):02}:{int(m):02}:{int(s):02},{ms:03}"
+
+            for idx, chunk in enumerate(chunks):
+                chunk_start = start + (idx * chunk_duration)
+                chunk_end = start + ((idx + 1) * chunk_duration)
+                srt_output.append(
+                    f"{counter}\n{fmt_time(chunk_start)} --> {fmt_time(chunk_end)}\n{chunk}\n"
                 )
-                
-                logger.info(f"CAPTIONS: API response status: {response.status_code}")
-                logger.info(f"CAPTIONS: API response headers: {dict(response.headers)}")
-                
-                if response.status_code != 200:
-                    logger.error(f"CAPTIONS: API returned status {response.status_code}")
-                    logger.error(f"CAPTIONS: Response content: {response.text}")
-                    return None
-                
-                data = response.json()
-                logger.info(f"CAPTIONS: API response data: {data}")
-                
-            except httpx.HTTPError as e:
-                logger.error(f"CAPTIONS: HTTP error during API call: {e}")
-                return None
-            except Exception as e:
-                logger.error(f"CAPTIONS: Unexpected error during API call: {e}")
-                return None
-        
-        if not data.get("success"):
-            logger.error(f"CAPTIONS: API returned success=false: {data}")
-            if "error" in data:
-                logger.error(f"CAPTIONS: API error message: {data['error']}")
-            return None
-        
-        project_id = data.get("project")
-        if not project_id:
-            logger.error(f"CAPTIONS: No project ID in response: {data}")
-            return None
-            
-        logger.info(f"CAPTIONS: Caption job created successfully - Project ID: {project_id}")
-        return project_id
-        
+                counter += 1
+
+        result = "\n".join(srt_output)
+        logger.info(f"CAPTIONS: Generated {counter - 1} subtitle entries")
+        return result
     except Exception as e:
-        logger.error(f"CAPTIONS: Failed to create caption job: {e}")
-        logger.exception("Full traceback:")
-        return None
+        logger.error(f"CAPTIONS: SRT generation failed - {e}")
+        return ""
 
 
-async def check_video_status(project_id: str, max_wait_time: int = 600) -> Optional[str]:
-    """
-    Polls JSON2Video API until the video rendering job is complete.
-    
-    Args:
-        project_id: The project ID from create_video_with_captions
-        max_wait_time: Maximum time to wait in seconds (default: 10 minutes)
-        
-    Returns:
-        Final video URL if successful, None if failed
-    """
+def burn_subtitles(video_path: str, srt_text: str, output_path: str) -> bool:
+    """Add subtitles to video using ffmpeg."""
     try:
-        logger.info(f"CAPTIONS: Checking status for project: {project_id}")
-        logger.info(f"CAPTIONS: Maximum wait time: {max_wait_time} seconds")
-        
-        if not settings.json2video_api_key:
-            logger.error("CAPTIONS: JSON2VIDEO_API_KEY not found")
-            return None
-        
-        headers = {"x-api-key": settings.json2video_api_key}
-        start_time = asyncio.get_event_loop().time()
-        interval = 15  # Check every 15 seconds (reduced API calls)
-        check_count = 0
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                check_count += 1
-                
-                # Check if we've exceeded max wait time
-                elapsed_time = asyncio.get_event_loop().time() - start_time
-                if elapsed_time > max_wait_time:
-                    logger.error(f"CAPTIONS: Timeout after {max_wait_time} seconds ({check_count} checks)")
-                    return None
-                
-                try:
-                    logger.info(f"CAPTIONS: Status check #{check_count} (elapsed: {elapsed_time:.1f}s)")
-                    
-                    response = await client.get(
-                        f"https://api.json2video.com/v2/movies?project={project_id}",
-                        headers=headers
-                    )
-                    
-                    logger.info(f"CAPTIONS: Status API response: {response.status_code}")
-                    
-                    if response.status_code != 200:
-                        logger.error(f"CAPTIONS: Status API returned {response.status_code}: {response.text}")
-                        await asyncio.sleep(interval)
-                        continue
-                    
-                    data = response.json()
-                    logger.info(f"CAPTIONS: Status response data: {data}")
-                    
-                    movie = data.get("movie", {})
-                    status = movie.get("status", "unknown")
-                    message = movie.get("message", "")
-                    progress = movie.get("progress", 0)
-                    
-                    logger.info(f"CAPTIONS: Status [{status}] Progress: {progress}% - {message}")
-                    
-                    if status == "done":
-                        video_url = movie.get("url")
-                        subtitle_url = movie.get("ass")
-                        duration = movie.get("duration")
-                        
-                        if video_url:
-                            logger.info("CAPTIONS: Caption rendering completed successfully!")
-                            logger.info(f"CAPTIONS: Final video URL: {video_url}")
-                            if duration:
-                                logger.info(f"CAPTIONS: Video duration: {duration}s")
-                            if subtitle_url:
-                                logger.info(f"CAPTIONS: Subtitle file: {subtitle_url}")
-                            return video_url
-                        else:
-                            logger.error(f"CAPTIONS: No video URL in completed response: {movie}")
-                            return None
-                            
-                    elif status == "error":
-                        error_details = movie.get("error", message)
-                        logger.error(f"CAPTIONS: Rendering error: {error_details}")
-                        logger.error(f"CAPTIONS: Full error response: {movie}")
-                        return None
-                        
-                    elif status in ["pending", "running"]:
-                        logger.info(f"CAPTIONS: Still processing... ({status}) - {progress}%")
-                        await asyncio.sleep(interval)
-                        continue
-                        
-                    else:
-                        logger.warning(f"CAPTIONS: Unknown status: {status} - {message}")
-                        logger.warning(f"CAPTIONS: Full response: {movie}")
-                        await asyncio.sleep(interval)
-                        continue
-                        
-                except httpx.HTTPError as e:
-                    logger.error(f"CAPTIONS: HTTP error checking status (attempt {check_count}): {e}")
-                    await asyncio.sleep(interval)
-                    continue
-                except Exception as e:
-                    logger.error(f"CAPTIONS: Unexpected error checking status (attempt {check_count}): {e}")
-                    await asyncio.sleep(interval)
-                    continue
-                    
+        srt_path = video_path.replace(".mp4", "_temp.srt")
+
+        logger.info(f"CAPTIONS: Writing SRT file - {srt_path}")
+        with open(srt_path, "w", encoding="utf-8") as f:
+            f.write(srt_text)
+
+        logger.info("CAPTIONS: Running FFmpeg to burn subtitles...")
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-vf", f"subtitles={srt_path}",
+            output_path
+        ]
+
+        process = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        if process.returncode != 0:
+            logger.error(f"CAPTIONS: FFmpeg error - {process.stderr}")
+            return False
+
+        logger.info(f"CAPTIONS: Subtitles burned successfully - {output_path}")
+
+        os.remove(srt_path)
+        logger.info("CAPTIONS: Temporary SRT file cleaned up")
+
+        return True
     except Exception as e:
-        logger.error(f"CAPTIONS: Failed to check video status: {e}")
-        logger.exception("Full traceback:")
-        return None
+        logger.error(f"CAPTIONS: Failed to burn subtitles - {e}")
+        return False
 
 
-async def add_captions_to_video(final_video_url: str, aspect_ratio: str = "9:16") -> str:
+async def add_captions_to_video(
+    final_video_url: str,
+    aspect_ratio: str = "9:16",
+    user_id: str = "",
+    video_id: str = ""
+) -> str:
     """
-    Complete workflow to add captions to a video.
-    
+    Add captions to video using FFmpeg and host on Railway static files.
+
     Args:
         final_video_url: The final composed video URL
         aspect_ratio: Video aspect ratio (e.g., "9:16", "16:9", "1:1", "3:4", "4:3")
-        
+        user_id: User ID (for logging)
+        video_id: Video ID (for file naming)
+
     Returns:
-        Captioned video URL if successful, original URL if failed
+        Captioned video URL hosted on Railway if successful, original URL if failed
     """
     try:
-        logger.info("CAPTIONS: Starting complete caption workflow...")
+        logger.info("CAPTIONS: Starting caption workflow...")
         logger.info(f"CAPTIONS: Input video: {final_video_url}")
-        
-        # Validate input video URL
+        logger.info(f"CAPTIONS: Video ID: {video_id}")
+
         if not final_video_url or not final_video_url.startswith("http"):
             logger.error(f"CAPTIONS: Invalid input video URL: {final_video_url}")
             return final_video_url
-        
-        # Step 1: Create caption job
-        logger.info("CAPTIONS: Step 1 - Creating caption job...")
-        project_id = await create_video_with_captions(final_video_url, aspect_ratio)
-        if not project_id:
-            logger.error("CAPTIONS: Failed to create caption job, returning original video")
+
+        os.makedirs("static/videos", exist_ok=True)
+
+        uid = str(uuid.uuid4())[:8]
+        input_path = f"static/videos/{uid}_input.mp4"
+        output_path = f"static/videos/{uid}_captioned.mp4"
+
+        loop = asyncio.get_event_loop()
+
+        success = await loop.run_in_executor(None, download_video, final_video_url, input_path)
+        if not success:
+            logger.error("CAPTIONS: Download failed, returning original video")
             return final_video_url
-        
-        logger.info(f"CAPTIONS: Caption job created with project ID: {project_id}")
-        
-        # Step 2: Wait for completion
-        logger.info("CAPTIONS: Step 2 - Waiting for caption processing...")
-        captioned_video_url = await check_video_status(project_id, max_wait_time=600)  # 10 minutes (leave buffer for ARQ timeout)
-        if not captioned_video_url:
-            logger.error("CAPTIONS: Failed to get captioned video, returning original video")
+
+        subtitles = await loop.run_in_executor(None, transcribe_audio, input_path, "small")
+        if not subtitles:
+            logger.error("CAPTIONS: Transcription failed, returning original video")
+            if os.path.exists(input_path):
+                os.remove(input_path)
             return final_video_url
-        
+
+        srt_text = await loop.run_in_executor(None, write_srt, subtitles, 3)
+        if not srt_text:
+            logger.error("CAPTIONS: SRT generation failed, returning original video")
+            if os.path.exists(input_path):
+                os.remove(input_path)
+            return final_video_url
+
+        success = await loop.run_in_executor(None, burn_subtitles, input_path, srt_text, output_path)
+        if not success:
+            logger.error("CAPTIONS: Subtitle burning failed, returning original video")
+            if os.path.exists(input_path):
+                os.remove(input_path)
+            return final_video_url
+
+        base_url = os.getenv("RAILWAY_PUBLIC_DOMAIN", "https://backend-services-production-c796.up.railway.app")
+        if not base_url.startswith("http"):
+            base_url = f"https://{base_url}"
+
+        video_url_public = f"{base_url}/videos/{uid}_captioned.mp4"
+
         logger.info("CAPTIONS: Caption workflow completed successfully!")
-        logger.info(f"CAPTIONS: Captioned video URL: {captioned_video_url}")
-        
-        # Validate output video URL
-        if not captioned_video_url.startswith("http"):
-            logger.error(f"CAPTIONS: Invalid captioned video URL: {captioned_video_url}")
-            return final_video_url
-            
-        return captioned_video_url
-        
+        logger.info(f"CAPTIONS: Captioned video URL: {video_url_public}")
+
+        if os.path.exists(input_path):
+            os.remove(input_path)
+            logger.info("CAPTIONS: Cleaned up input file")
+
+        return video_url_public
+
     except Exception as e:
         logger.error(f"CAPTIONS: Caption workflow failed: {e}")
         logger.exception("Full traceback:")
-        return final_video_url  # Return original video as fallback
+        return final_video_url
