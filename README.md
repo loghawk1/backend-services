@@ -1,39 +1,42 @@
-# FFmpeg Video Caption Service
+# Video Generation Service with JSON2Video Captions
 
-Self-hosted video captioning service using FFmpeg + Whisper, with static file hosting on Railway.
+AI-powered video generation service with automated caption generation using JSON2Video API.
 
 ## 🎯 How It Works
 
 ### Simple Architecture
 
 ```
-Input Video URL
+Video Request
   ↓
-Download video
+Generate scenes with GPT-4
   ↓
-Transcribe with Whisper
+Create images & videos with fal.ai
   ↓
-Generate SRT subtitles
+Generate voiceovers & music
   ↓
-Burn subtitles with FFmpeg
+Compose final video with JSON2Video
   ↓
-Save to static/videos/
+Add auto-generated captions with JSON2Video
   ↓
-Return Railway-hosted URL
+Return final video URL
 ```
 
 ### Example
 
 ```bash
 # Input
-POST /caption
+POST /video/request
 {
-  "video_url": "https://example.com/video.mp4"
+  "prompt": "A story about...",
+  "image_url": "https://example.com/image.jpg",
+  "aspect_ratio": "9:16"
 }
 
 # Output
 {
-  "url": "https://your-app.railway.app/videos/abc123_captioned.mp4"
+  "video_id": "abc123",
+  "status": "processing"
 }
 ```
 
@@ -42,117 +45,112 @@ POST /caption
 ```
 project/
 ├── app/
-│   ├── main.py                         # FastAPI app with /videos endpoint
+│   ├── main.py                         # FastAPI app
+│   ├── worker.py                       # ARQ task worker
 │   └── services/
-│       └── caption_generation.py       # Caption processing logic
-├── static/
-│   └── videos/                         # Captioned videos stored here
+│       ├── scene_generation.py         # GPT-4 scene generation
+│       ├── image_processing.py         # Image generation
+│       ├── video_generation.py         # Video generation
+│       ├── audio_generation.py         # Voiceover generation
+│       ├── music_generation.py         # Music generation
+│       ├── json2video_composition.py   # Video composition
+│       └── caption_generation.py       # Caption generation with JSON2Video
 ├── requirements.txt                    # Python dependencies
-├── nixpacks.toml                       # Railway deployment config
 └── README.md                           # This file
 ```
 
 ## 🚀 Quick Start
 
-### 1. Deploy to Railway
-
-```bash
-# Push to Railway
-git add .
-git commit -m "Add FFmpeg caption service"
-git push railway main
-```
-
-Railway will automatically:
-- Install FFmpeg (via nixpacks.toml)
-- Install Python dependencies
-- Start the FastAPI server
-- Mount `/videos` static files directory
-
-### 2. Test the API
-
-```bash
-# Health check
-curl https://your-app.railway.app/health
-
-# Caption a video
-curl -X POST https://your-app.railway.app/caption \
-  -H "Content-Type: application/json" \
-  -d '{
-    "video_url": "https://example.com/sample.mp4",
-    "model_size": "small"
-  }'
-
-# Response:
-# {
-#   "url": "https://your-app.railway.app/videos/abc123_captioned.mp4"
-# }
-```
-
-### 3. Access the Video
-
-The captioned video is now accessible at:
-```
-https://your-app.railway.app/videos/abc123_captioned.mp4
-```
-
-You can use this URL directly in your frontend `<video>` tags.
-
-## 🔧 Configuration
-
 ### Environment Variables
 
-```bash
-# Optional: Set custom base URL (Railway sets this automatically)
-RAILWAY_PUBLIC_DOMAIN=your-app.railway.app
+Required environment variables:
 
-# Optional: Set custom port (Railway handles this)
-PORT=8000
+```bash
+# APIs
+OPENAI_API_KEY=your_openai_key
+FAL_KEY=your_fal_key
+JSON2VIDEO_API_KEY=your_json2video_key
+
+# Database
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+
+# Redis (for task queue)
+REDIS_URL=redis://localhost:6379
 ```
 
-### Whisper Model Sizes
+### Running Locally
 
-Choose model size based on accuracy vs speed:
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-| Model | Speed | Accuracy | Memory |
-|-------|-------|----------|--------|
-| tiny  | Fast  | Good     | ~1GB   |
-| small | Medium| Better   | ~2GB   |
-| medium| Slow  | Great    | ~5GB   |
-| large | Very Slow | Best | ~10GB  |
+2. Start Redis:
+```bash
+redis-server
+```
 
-**Recommended**: `small` for production (good balance)
+3. Run the worker:
+```bash
+python run_worker.py
+```
+
+4. Run the server:
+```bash
+python run_server.py
+```
 
 ## 📝 API Reference
 
-### POST /caption
+### POST /video/request
 
-Add captions to a video.
+Generate a video from a prompt.
 
 **Request:**
 ```json
 {
-  "video_url": "https://example.com/video.mp4",
-  "model_size": "small",
+  "prompt": "A story about innovation",
+  "image_url": "https://example.com/image.jpg",
   "aspect_ratio": "9:16",
-  "user_id": "optional_user_123",
-  "video_id": "optional_video_456"
+  "user_email": "user@example.com",
+  "callback_url": "https://your-app.com/webhook"
 }
 ```
 
-**Response (Success):**
+**Response:**
 ```json
 {
-  "url": "https://your-app.railway.app/videos/abc123_captioned.mp4"
+  "video_id": "abc123",
+  "status": "processing",
+  "task_id": "task_xyz"
 }
 ```
 
-**Response (Failure):**
+### POST /video/wan-request
+
+Generate a video using the WAN workflow (6 scenes).
+
+**Request:**
 ```json
 {
-  "url": "https://example.com/video.mp4",
-  "status": "failed",
-  "message": "Caption processing failed, returned original video"
+  "prompt": "Product advertisement",
+  "image_url": "https://example.com/product.jpg",
+  "aspect_ratio": "9:16",
+  "model": "wan"
+}
+```
+
+### POST /video/revision
+
+Revise an existing video.
+
+**Request:**
+```json
+{
+  "parent_video_id": "video_123",
+  "revision_request": "Make it more energetic",
+  "user_email": "user@example.com"
 }
 ```
 
@@ -164,14 +162,53 @@ Health check endpoint.
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-10-07T01:00:00.000000",
-  "version": "1.0.0"
+  "timestamp": "2025-10-07T01:00:00.000000"
 }
 ```
 
-## 🔗 Integration with Existing Workflow
+## 🎨 Caption Customization
 
-If you already have a video processing pipeline, you can call `add_captions_to_video()` directly:
+### JSON2Video Caption Settings
+
+Captions are automatically generated and burned into the video using JSON2Video's subtitle feature. The service:
+
+1. Transcribes audio from the video
+2. Generates word-by-word captions
+3. Burns them into the video with custom styling
+
+Current caption style:
+- Font: Nunito
+- Size: 70px
+- Color: White with black outline
+- Position: Bottom center
+- Max words per line: 3
+
+To customize captions, edit `app/services/caption_generation.py`:
+
+```python
+"subtitles": {
+    "settings": {
+        "style": "classic",
+        "font-family": "Nunito",
+        "font-size": 70,
+        "word-color": "#FFFFFF",
+        "outline-color": "#000000",
+        "max-words-per-line": 3,
+        "position": "custom",
+        "y": 1400
+    }
+}
+```
+
+## 🔧 How Caption Generation Works
+
+The caption workflow uses JSON2Video API:
+
+1. **Input**: Final composed video URL
+2. **Process**: JSON2Video API call with subtitle element
+3. **Transcription**: Automatic speech-to-text
+4. **Rendering**: Captions burned into video
+5. **Output**: New video URL with captions
 
 ```python
 from app.services.caption_generation import add_captions_to_video
@@ -180,183 +217,90 @@ from app.services.caption_generation import add_captions_to_video
 final_video_url = "https://example.com/composed_video.mp4"
 captioned_url = await add_captions_to_video(
     final_video_url=final_video_url,
-    aspect_ratio="9:16",
-    user_id="user123",
-    video_id="video456"
+    aspect_ratio="9:16"
 )
-
-# Use captioned_url in your response
 ```
 
-## 🎨 Customization
-
-### Subtitle Styling
-
-Edit `caption_generation.py` line 122 to customize FFmpeg subtitle styling:
-
-```python
-cmd = [
-    "ffmpeg",
-    "-y",
-    "-i", video_path,
-    "-vf", f"subtitles={srt_path}:force_style='FontName=Arial,FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,BorderStyle=3,Outline=2,Shadow=1,MarginV=50'",
-    output_path
-]
-```
-
-**Style Options:**
-- `FontName` - Font family
-- `FontSize` - Text size
-- `PrimaryColour` - Text color (BGR hex)
-- `OutlineColour` - Outline color
-- `Outline` - Outline thickness
-- `Shadow` - Shadow distance
-- `MarginV` - Vertical margin from bottom
-
-### Words Per Line
-
-Edit `write_srt()` function:
-
-```python
-def write_srt(subtitles: list, max_words_per_line: int = 3):
-    # Change 3 to your preferred number
-```
-
-## 💾 Storage Management
-
-Videos are stored in `static/videos/` directory on Railway.
-
-### Cleanup Strategy
-
-Railway has limited storage, so you should clean up old videos:
-
-**Option 1: Automatic Cleanup (Recommended)**
-
-Add this to `caption_generation.py`:
-
-```python
-import time
-
-# After saving captioned video
-def cleanup_old_videos(directory="static/videos", max_age_hours=24):
-    """Delete videos older than max_age_hours"""
-    current_time = time.time()
-    for filename in os.listdir(directory):
-        filepath = os.path.join(directory, filename)
-        if os.path.isfile(filepath):
-            file_age_hours = (current_time - os.path.getmtime(filepath)) / 3600
-            if file_age_hours > max_age_hours:
-                os.remove(filepath)
-                logger.info(f"CLEANUP: Removed old file {filename}")
-
-# Call after processing
-cleanup_old_videos()
-```
-
-**Option 2: Manual Cleanup**
-
-SSH into Railway and run:
-```bash
-find static/videos -name "*.mp4" -mtime +1 -delete
-```
+If caption generation fails, the original video URL is returned as fallback.
 
 ## 🐛 Troubleshooting
 
-### FFmpeg Not Found
+### Caption Generation Fails
 
-**Symptom:** `CAPTIONS: FFmpeg error - ffmpeg: command not found`
+**Symptom:** Original video returned without captions
 
-**Solution:** Ensure `nixpacks.toml` is in project root with:
-```toml
-[phases.setup]
-nixPkgs = ["python39", "ffmpeg"]
+**Possible causes:**
+1. JSON2VIDEO_API_KEY not set
+2. Invalid video URL
+3. API quota exceeded
+4. Network timeout
+
+**Solution:** Check logs for detailed error messages:
+```bash
+tail -f app.log
 ```
 
-### Whisper Model Download Fails
+### Video Processing Timeout
 
-**Symptom:** `Failed to download Whisper model`
+**Symptom:** Task times out after 10 minutes
 
-**Solution:** Use a smaller model:
-```python
-transcribe_audio(input_path, "tiny")  # Instead of "small"
-```
-
-### Out of Memory
-
-**Symptom:** Railway container crashes during processing
-
-**Solutions:**
-1. Use `tiny` Whisper model
-2. Upgrade Railway plan
-3. Process shorter videos only
-
-### Video Not Accessible
-
-**Symptom:** 404 when accessing `/videos/...` URL
-
-**Solution:** Check that:
-1. `static/videos` directory exists
-2. FastAPI mounts it: `app.mount("/videos", StaticFiles(directory="static/videos"))`
-3. File was actually saved (check logs)
+**Solution:**
+- Check ARQ worker logs
+- Verify all API keys are set
+- Ensure Redis is running
 
 ## 📊 Performance
 
-Expected processing times on Railway Hobby plan:
+Expected processing times:
 
-| Video Length | Transcription | FFmpeg | Total   |
-|--------------|---------------|--------|---------|
-| 30 seconds   | 15-20s        | 5-8s   | 20-28s  |
-| 60 seconds   | 30-40s        | 10-15s | 40-55s  |
-
-## 💰 Cost Comparison
-
-### Before (json2video API)
-- $0.10 per video
-- 1000 videos/month = **$100/month**
-
-### After (Self-Hosted on Railway)
-- Railway compute: $5-20/month
-- Railway storage: Free (up to 100GB)
-- 1000 videos/month = **$5-20/month**
-
-**Savings: 80-95%!** 🎉
+| Step | Time |
+|------|------|
+| Scene generation (GPT-4) | 10-15s |
+| Image generation (fal.ai) | 30-60s |
+| Video generation (fal.ai) | 60-120s |
+| Voiceover generation | 20-30s |
+| Music generation | 15-20s |
+| Video composition | 30-60s |
+| Caption generation | 60-120s |
+| **Total** | **4-7 minutes** |
 
 ## 🔒 Security Notes
 
-1. **No Authentication:** Add auth middleware if needed
-2. **Rate Limiting:** Consider adding rate limits
-3. **Input Validation:** Video URL is validated
-4. **File Cleanup:** Implement cleanup to prevent storage abuse
+1. **API Key Protection:** Never commit API keys to git
+2. **Webhook Security:** Validate callback URLs
+3. **Rate Limiting:** Implement rate limits on endpoints
+4. **Input Validation:** All inputs are validated
 
 ## 📚 Dependencies
 
 - `fastapi` - Web framework
 - `uvicorn` - ASGI server
-- `openai-whisper` - Speech-to-text
-- `requests` - HTTP client
-- `ffmpeg` - Video processing (installed via nixpacks)
+- `arq` - Task queue
+- `redis` - Task queue backend
+- `openai` - GPT-4 for scene generation
+- `fal-client` - Image/video/audio generation
+- `httpx` - HTTP client for API calls
+- `supabase` - Database client
 
-## 🚢 Deployment Checklist
+## 🚢 Deployment
 
-- [x] Code structure matches working example
-- [x] Static files hosted at `/videos`
-- [x] FFmpeg installed via nixpacks
-- [x] Whisper dependencies in requirements.txt
-- [x] FastAPI app with CORS enabled
-- [x] Health check endpoint
-- [x] Error handling returns original URL
-- [ ] **Deploy to Railway**
-- [ ] **Test with real video**
-- [ ] **Verify `/videos` endpoint works**
-- [ ] **Monitor storage usage**
+The service can be deployed to any platform that supports:
+- Python 3.9+
+- Redis
+- Long-running workers (for ARQ)
+
+Recommended platforms:
+- Railway (with Redis addon)
+- Heroku (with Redis addon)
+- AWS ECS + ElastiCache
+- Google Cloud Run + Memorystore
 
 ## 🎯 Success!
 
-Your caption service is now:
-- ✅ Self-hosted on Railway
-- ✅ Uses static file hosting
-- ✅ Returns Railway-hosted URLs
-- ✅ 80-95% cheaper than json2video
-- ✅ Fully under your control
-
-Frontend receives the same format of video URLs and requires no changes!
+Your video generation service:
+- ✅ Generates videos from text prompts
+- ✅ Creates custom scenes with GPT-4
+- ✅ Auto-generates voiceovers and music
+- ✅ Adds professional captions automatically
+- ✅ Supports video revisions
+- ✅ Scales with async task queue
