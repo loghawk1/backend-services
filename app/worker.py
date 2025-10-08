@@ -376,66 +376,67 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             # Store music in database
             await store_music_in_database(normalized_music_url, extracted_data.video_id, extracted_data.user_id)
         
-        # Step 7: Compose final WAN video with audio
-        logger.info("WAN_PIPELINE: Step 7 - Composing final WAN video with all audio tracks...")
-        await update_task_progress(extracted_data.task_id, 80, "Composing final WAN video with audio")
-        
+        # Step 7: Compose final WAN video with scene videos and voiceovers
+        logger.info("WAN_PIPELINE: Step 7 - Merging scene videos with voiceovers...")
+        await update_task_progress(extracted_data.task_id, 75, "Merging scene videos with voiceovers")
+
         # For WAN, we compose videos + voiceovers directly (no separate composition step)
-        final_video_url = await compose_wan_final_video_with_audio(
+        merged_video_url = await compose_wan_final_video_with_audio(
             video_urls,
             voiceover_urls,
             extracted_data.aspect_ratio
         )
-        
-        if not final_video_url:
-            error_msg = "Failed to compose final WAN video with audio tracks"
+
+        if not merged_video_url:
+            error_msg = "Failed to merge scene videos with voiceovers"
             logger.error(f"WAN_PIPELINE: {error_msg}")
             await send_error_callback(error_msg, extracted_data.video_id, extracted_data.chat_id, extracted_data.user_id, is_revision=False)
             raise Exception(error_msg)
-        
-        # Step 8: Add background music to the composed video
+
+        # Step 8: Add captions to the merged video
+        logger.info("WAN_PIPELINE: Step 8 - Adding captions to merged video...")
+        await update_task_progress(extracted_data.task_id, 85, "Adding captions to merged video")
+
+        captioned_video_url = await add_captions_to_video(merged_video_url, extracted_data.aspect_ratio)
+
+        # Step 9: Add background music to the captioned video
+        final_video_url = captioned_video_url
         if normalized_music_url:
-            logger.info("WAN_PIPELINE: Step 8 - Adding background music to WAN video...")
-            await update_task_progress(extracted_data.task_id, 85, "Adding background music to WAN video")
-            
+            logger.info("WAN_PIPELINE: Step 9 - Adding background music to captioned video...")
+            await update_task_progress(extracted_data.task_id, 90, "Adding background music to captioned video")
+
             from .services.json2video_composition import compose_final_video_with_music_ffmpeg
             final_video_with_music = await compose_final_video_with_music_ffmpeg(
-                final_video_url,
+                captioned_video_url,
                 normalized_music_url,
                 extracted_data.aspect_ratio
             )
-            
+
             if final_video_with_music:
                 final_video_url = final_video_with_music
                 logger.info("WAN_PIPELINE: Background music added successfully")
             else:
                 logger.warning("WAN_PIPELINE: Failed to add background music, continuing without it")
-        
-        # Step 9: Add captions to WAN video
-        logger.info("WAN_PIPELINE: Step 9 - Adding captions to WAN video...")
-        await update_task_progress(extracted_data.task_id, 90, "Adding captions to WAN video")
-        
-        captioned_video_url = await add_captions_to_video(final_video_url, extracted_data.aspect_ratio)
-        
+
         # Step 10: Send callback with final WAN video
         logger.info("WAN_PIPELINE: Step 10 - Sending callback with final WAN video...")
         await update_task_progress(extracted_data.task_id, 95, "Sending callback with final WAN video")
-        
+
         callback_success = await send_video_callback(
-            captioned_video_url,
+            final_video_url,
             extracted_data.video_id,
             extracted_data.chat_id,
             extracted_data.user_id,
             extracted_data.callback_url,
             is_revision=False
         )
-        
+
         if callback_success:
             logger.info("WAN_PIPELINE: WAN video processing completed successfully!")
             await update_task_progress(extracted_data.task_id, 100, "WAN video processing completed successfully")
             return {
                 "status": "completed",
-                "final_video_url": captioned_video_url,
+                "final_video_url": final_video_url,
                 "video_id": extracted_data.video_id,
                 "model": "wan"
             }
@@ -443,7 +444,7 @@ async def process_wan_request(ctx: Dict[str, Any], extracted_data_dict: Dict[str
             logger.error("WAN_PIPELINE: Callback failed but WAN video was processed successfully")
             return {
                 "status": "completed_callback_failed",
-                "final_video_url": captioned_video_url,
+                "final_video_url": final_video_url,
                 "video_id": extracted_data.video_id,
                 "model": "wan"
             }

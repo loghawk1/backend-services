@@ -8,6 +8,29 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def normalize_video_url(url: str) -> str:
+    """
+    Normalize a video URL by ensuring it has the https:// protocol.
+
+    Args:
+        url: The video URL to normalize (may or may not have protocol)
+
+    Returns:
+        Normalized URL with https:// protocol
+    """
+    if not url:
+        return url
+
+    # If URL already has protocol, return as-is
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+
+    # Otherwise, prepend https://
+    normalized = f"https://{url}"
+    logger.debug(f"FFMPEG_API: Normalized URL: {url} -> {normalized}")
+    return normalized
+
+
 async def submit_merge_task(
     scene_clip_urls: list[str],
     voiceover_urls: list[str],
@@ -118,7 +141,10 @@ async def submit_background_music_task(
         logger.info(f"FFMPEG_API: Music URL: {music_url}")
         logger.info(f"FFMPEG_API: Volumes - Music: {music_volume}, Video: {video_volume}")
 
-        # Validate inputs
+        # Normalize and validate inputs
+        video_url = normalize_video_url(video_url)
+        music_url = normalize_video_url(music_url)
+
         if not video_url or not video_url.startswith("http"):
             logger.error(f"FFMPEG_API: Invalid video URL: {video_url}")
             return None
@@ -192,7 +218,9 @@ async def submit_caption_task(
         logger.info(f"FFMPEG_API: Video URL: {video_url}")
         logger.info(f"FFMPEG_API: Whisper model size: {model_size}")
 
-        # Validate inputs
+        # Normalize and validate inputs
+        video_url = normalize_video_url(video_url)
+
         if not video_url or not video_url.startswith("http"):
             logger.error(f"FFMPEG_API: Invalid video URL: {video_url}")
             return None
@@ -329,6 +357,8 @@ async def poll_task_status(
 
             if status == "success":
                 if video_url:
+                    # Normalize the video URL (add https:// if missing)
+                    video_url = normalize_video_url(video_url)
                     logger.info(f"FFMPEG_API: Task completed successfully!")
                     logger.info(f"FFMPEG_API: Duration: {elapsed_time:.1f}s")
                     logger.info(f"FFMPEG_API: Video URL: {video_url}")
